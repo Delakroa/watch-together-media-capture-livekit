@@ -72,7 +72,7 @@ Host page показывает:
 
 ## Вывод WT-003
 
-`GO` для продолжения WT-004/product-state прототипа: media path стабилен на 1 guest, звук работает, packet loss равен 0, long-run 27 минут подтвержден.
+`GO` для фиксации WT-004 media pipeline ADR и продолжения product-state прототипа: media path стабилен на 1 guest, звук работает, packet loss равен 0, long-run 27 минут подтвержден.
 
 `ADJUST` перед продуктовым обещанием качества/масштаба:
 

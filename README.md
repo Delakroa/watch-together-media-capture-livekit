@@ -127,10 +127,10 @@ Resolution: 720p или 1080p
 
 - `HTMLMediaElement.captureStream()` поддерживается не во всех браузерах; WT-001 ориентирован на desktop Chrome/Edge.
 - Guest audio может требовать пользовательского действия из-за autoplay policy.
-- Pause у host передается как замерший media stream, а не как отдельное product-state событие.
-- Seek у host виден guest как скачок кадров в live stream; отдельной синхронизации состояния пока нет.
+- Pause у host теперь дополнительно передается как WT-004 playback-state событие, но backend-owned room state еще не реализован.
+- Seek у host виден guest как скачок кадров в live stream; WT-004 обновляет host playback state, но точная VOD-синхронизация по timestamp пока не реализована.
 - Без TURN/TLS этот compose предназначен для локального теста на одной машине или в простой LAN.
-- LiveKit image tag закреплен для воспроизводимого PoC, но перед WT-004 версию нужно сверить с production-рекомендациями.
+- LiveKit image tag закреплен для воспроизводимого PoC, но перед beta версию нужно сверить с production-рекомендациями.
 
 ## 12. Troubleshooting
 
@@ -173,12 +173,14 @@ docker compose exec livekit /livekit-server --version
 5. Не должно быть `POST`, `PUT`, `multipart/form-data`, больших request payload или запроса с именем файла.
 6. В фильтре `WS` будет подключение к LiveKit; это WebRTC signaling/media-plane, не application backend upload.
 
-## WT-002 / WT-003
+## WT-002 / WT-003 / WT-004
 
 - WT-002 матрица совместимости: [docs/WT-002_COMPATIBILITY_MATRIX.md](docs/WT-002_COMPATIBILITY_MATRIX.md)
 - WT-003 качество и задержка: [docs/WT-003_QUALITY_LATENCY.md](docs/WT-003_QUALITY_LATENCY.md)
+- WT-004 media pipeline ADR: [docs/WT-004_MEDIA_PIPELINE_ADR.md](docs/WT-004_MEDIA_PIPELINE_ADR.md)
+- WT-004 product-state sync: [docs/WT-004_PRODUCT_STATE.md](docs/WT-004_PRODUCT_STATE.md)
 
-Текущий вывод: `GO` для продолжения WT-004/product-state прототипа на базе Chrome/Edge + MP4 H.264/AAC. Это еще не production quality/SLO.
+Текущий вывод P0: `GO` для перехода к P1 foundation на базе Chrome/Edge + MP4 H.264/AAC + LiveKit. Это еще не production quality/SLO.
 
 Подтверждено:
 
@@ -199,6 +201,22 @@ docker compose exec livekit /livekit-server --version
 
 Перед продуктовым обещанием качества/масштаба нужно снять метрики для 2 guests и 3 guests, а также отдельно проверить controlled network scenarios, если они входят в MVP.
 
+## WT-004
+
+WT-004 фиксирует media pipeline decision в ADR и добавляет первый product-state прототип.
+
+Host теперь отправляет состояние просмотра через LiveKit data channel topic `wt.playback-state.v1`.
+
+Guest получает и показывает `Host playback`, а также применяет host `playing/paused/ended` к своему remote video. Это первый product-state слой: host уже является авторитетным для play/pause, но точная VOD-синхронизация seek по timestamp пока не реализована, потому что guest получает live WebRTC stream, а не локальный файл.
+
+Для ручной проверки:
+
+1. Host выбирает MP4, подключается и публикует tracks.
+2. Guest подключается к той же room.
+3. Host нажимает `Pause` / `Play` / делает seek.
+4. Guest должен обновлять `Host playback`; play/pause должны применяться к remote video.
+5. После guest reload/reconnect новое состояние должно приехать через heartbeat host.
+
 ## Автоматические проверки
 
 ```powershell
@@ -207,4 +225,4 @@ pnpm test
 pnpm build
 ```
 
-Эти тесты покрывают только логику без реального browser media pipeline: MIME support, error normalization, object URL cleanup, media track cleanup, отсутствие audio track и отсутствие `captureStream()`.
+Эти тесты покрывают только логику без реального browser media pipeline: MIME support, error normalization, object URL cleanup, media track cleanup, отсутствие audio track, отсутствие `captureStream()` и кодирование/валидацию WT-004 playback-state messages.

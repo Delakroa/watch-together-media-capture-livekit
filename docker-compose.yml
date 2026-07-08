@@ -1,0 +1,10 @@
+﻿services:
+  livekit:
+    image: livekit/livekit-server:v1.9
+    command: --node-ip 127.0.0.1 --config /etc/livekit.yaml
+    ports:
+      - "127.0.0.1:17880:17880"
+      - "127.0.0.1:17881:17881"
+      - "50000-50100:50000-50100/udp"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro

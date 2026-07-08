@@ -1,0 +1,203 @@
+﻿# WT-001 Media Capture LiveKit PoC
+
+## 1. Назначение прототипа
+
+Этот прототип проверяет только P0-сценарий Watch Together:
+
+```text
+локальный MP4 у host -> HTMLVideoElement -> captureStream()
+-> публикация audio/video tracks в LiveKit -> guest browser
+```
+
+Прототип не создает продуктовые комнаты, аккаунты, чат, Spring Boot backend, Redis, PostgreSQL, transcoding или хранение видео. Локальный файл остается в браузере host и используется через `URL.createObjectURL()`.
+
+## 2. Требования
+
+- Node.js 20+.
+- Docker Desktop или совместимый Docker Compose.
+- Desktop Chrome или Edge.
+- MP4 H.264/AVC, AAC, до 1080p для основного теста.
+
+Firefox, Safari, mobile browsers, MKV, HEVC, DTS и DRM не входят в WT-001.
+
+## 3. Как установить зависимости
+
+```powershell
+cd "E:\Проекты\watch-together-media-capture-livekit"
+copy .env.example .env
+pnpm install
+```
+
+## 4. Как запустить всё одной командой
+
+```powershell
+cd "E:\Проекты\watch-together-media-capture-livekit"
+pnpm dev
+```
+
+Эта команда поднимает LiveKit через Docker Compose, token endpoint на `http://127.0.0.1:3001` и frontend на `http://127.0.0.1:5173`.
+
+`Ctrl+C` останавливает token endpoint и frontend. LiveKit запускается в Docker в detached mode; чтобы остановить контейнер отдельно, используй:
+
+```powershell
+pnpm dev:down
+```
+
+## 5. Как запустить LiveKit отдельно
+
+```powershell
+cd "E:\Проекты\watch-together-media-capture-livekit"
+docker compose up -d livekit
+docker compose ps
+```
+
+Локальный LiveKit слушает `ws://127.0.0.1:17880`. Development API key и secret находятся только в `.env` и `livekit.yaml`; frontend их не читает.
+
+## 6. Как запустить token endpoint
+
+В отдельном терминале:
+
+```powershell
+cd "E:\Проекты\watch-together-media-capture-livekit"
+pnpm dev:token
+```
+
+Endpoint:
+
+```text
+GET http://127.0.0.1:3001/token?room=wt-poc-room&identity=host-1&role=host
+```
+
+Он принимает только room, identity и role. Видео, путь к файлу и бинарные данные не принимаются.
+
+## 7. Как запустить frontend
+
+В отдельном терминале:
+
+```powershell
+cd "E:\Проекты\watch-together-media-capture-livekit"
+pnpm dev:frontend
+```
+
+Vite будет доступен на `http://127.0.0.1:5173`.
+
+## 8. Как открыть host
+
+Открой:
+
+```text
+http://127.0.0.1:5173/?mode=host&room=wt-poc-room
+```
+
+Порядок проверки:
+
+1. Нажми `Connect`.
+2. Выбери MP4 через file picker.
+3. Убедись, что local preview играет со звуком.
+4. Нажми `Publish captured tracks`.
+5. Используй `Play`, `Pause` и seek slider или controls видео.
+6. Для смены файла выбери новый MP4; старый object URL будет освобожден, а старая публикация остановлена.
+
+## 9. Как открыть guest
+
+Открой второе окно Chrome/Edge:
+
+```text
+http://127.0.0.1:5173/?mode=guest&room=wt-poc-room
+```
+
+Нажми `Connect`. Guest должен увидеть connection state, subscription state, remote video и audio state. Если браузер заблокирует autoplay audio, нажми `Enable sound`.
+
+Guest использует нативные video controls браузера, как host: volume, mute и fullscreen работают штатно. Product-state комнаты все равно принадлежит host; локальные pause/seek на guest не отправляют команды host.
+
+## 10. Какой тестовый файл использовать
+
+Основной файл:
+
+```text
+Container: MP4
+Video codec: H.264 / AVC
+Audio codec: AAC
+Resolution: 720p или 1080p
+```
+
+Дополнительно проверь MP4 без audio track. Это не считается ошибкой: host должен опубликовать video track и явно показать `No audio track captured`.
+
+## 11. Известные ограничения
+
+- `HTMLMediaElement.captureStream()` поддерживается не во всех браузерах; WT-001 ориентирован на desktop Chrome/Edge.
+- Guest audio может требовать пользовательского действия из-за autoplay policy.
+- Pause у host передается как замерший media stream, а не как отдельное product-state событие.
+- Seek у host виден guest как скачок кадров в live stream; отдельной синхронизации состояния пока нет.
+- Без TURN/TLS этот compose предназначен для локального теста на одной машине или в простой LAN.
+- LiveKit image tag закреплен для воспроизводимого PoC, но перед WT-004 версию нужно сверить с production-рекомендациями.
+
+## 12. Troubleshooting
+
+- `captureStream is not supported`: открой PoC в desktop Chrome или Edge.
+- `Token endpoint is unavailable`: проверь `pnpm dev:token` и `VITE_TOKEN_ENDPOINT`.
+- `LiveKit connection failed`: проверь `docker compose up -d livekit`, `docker compose ps`, порт `17880` и совпадение key/secret в `.env` и `livekit.yaml`.
+- `v1 RTC path not found` в browser console: LiveKit server слишком старый для установленного `livekit-client`; пересоздай контейнер через `docker compose pull livekit` и `docker compose up -d --force-recreate livekit`.
+- Guest видит video, но не слышит audio: нажми `Enable sound`, проверь что исходный файл содержит AAC audio track и что host preview не muted.
+- Повторный выбор файла не обновляет stream: нажми `Stop publication`, затем выбери файл снова; если проблема повторяется, перезагрузи host страницу и зафиксируй browser/version.
+
+## 13. Где смотреть логи
+
+Browser logs:
+
+```text
+Chrome/Edge DevTools -> Console
+```
+
+Самые полезные строки: `v1 RTC path not found`, `WebSocket connection failed`, `publishTrack`, `trackSubscribed`, `disconnected`, `reconnecting`.
+
+LiveKit server logs:
+
+```powershell
+cd "E:\Проекты\watch-together-media-capture-livekit"
+pnpm logs:livekit
+```
+
+Для быстрой проверки версии сервера:
+
+```powershell
+docker compose exec livekit /livekit-server --version
+```
+
+## 14. Как убедиться, что файл не загружается на backend
+
+1. Открой DevTools -> Network на host странице.
+2. Включи фильтр `Fetch/XHR`.
+3. Выбери локальный MP4 и нажми `Publish captured tracks`.
+4. Должен быть только запрос к `/token` с query params room/identity/role.
+5. Не должно быть `POST`, `PUT`, `multipart/form-data`, больших request payload или запроса с именем файла.
+6. В фильтре `WS` будет подключение к LiveKit; это WebRTC signaling/media-plane, не application backend upload.
+
+## Автоматические проверки
+
+```powershell
+cd "E:\Проекты\watch-together-media-capture-livekit"
+pnpm test
+pnpm build
+```
+
+Эти тесты покрывают только логику без реального browser media pipeline: MIME support, error normalization, object URL cleanup, media track cleanup, отсутствие audio track и отсутствие `captureStream()`.
+
+## Ручная матрица WT-001
+
+Заполни после запуска на реальных браузерах:
+
+| Проверка | Результат |
+|---|---|
+| Chrome host -> Chrome guest | not run |
+| Edge host -> Edge guest | not run |
+| Chrome host -> Edge guest | not run |
+| MP4 with audio | not run |
+| MP4 without audio | not run |
+| Re-select file | not run |
+| Pause then Play | not run |
+| Seek forward/back | not run |
+| Close host tab | not run |
+| Guest reconnect | not run |
+| Stop publication | not run |
+| Network: no file upload to backend | not run |

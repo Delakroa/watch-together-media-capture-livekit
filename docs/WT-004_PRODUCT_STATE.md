@@ -2,6 +2,8 @@
 
 Цель: добавить первый product-state слой поверх уже работающего media pipeline. Host становится авторитетным источником состояния просмотра, guest получает это состояние через LiveKit data channel.
 
+Связанное P0-решение по media pipeline зафиксировано отдельно: [WT-004 Media Pipeline ADR](WT-004_MEDIA_PIPELINE_ADR.md).
+
 ## Что реализовано
 
 Host отправляет reliable data messages в LiveKit topic `wt.playback-state.v1`.
@@ -42,6 +44,8 @@ Guest:
 ## Важное ограничение
 
 Текущий media stream остается live WebRTC stream. Guest не может честно `seek`-нуться в remote media stream по `host.currentTime`, потому что у него нет файла и нет VOD timeline. Поэтому WT-004 v1 синхронизирует состояние и намерение host, а не делает точную VOD-синхронизацию по timestamp.
+
+Это PoC-слой, а не финальный backend-owned room state. В MVP авторитетное состояние комнаты должно жить в Spring Boot WebSocket snapshot/events с versioning, permissions и stale-event handling.
 
 Практический смысл:
 

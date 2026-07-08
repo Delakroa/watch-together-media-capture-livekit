@@ -23,7 +23,7 @@ Firefox, Safari, mobile browsers, MKV, HEVC, DTS и DRM не входят в WT-
 ## 3. Как установить зависимости
 
 ```powershell
-cd "E:\Проекты\watch-together-media-capture-livekit"
+cd watch-together-media-capture-livekit
 copy .env.example .env
 pnpm install
 ```
@@ -31,7 +31,7 @@ pnpm install
 ## 4. Как запустить всё одной командой
 
 ```powershell
-cd "E:\Проекты\watch-together-media-capture-livekit"
+cd watch-together-media-capture-livekit
 pnpm dev
 ```
 
@@ -46,19 +46,19 @@ pnpm dev:down
 ## 5. Как запустить LiveKit отдельно
 
 ```powershell
-cd "E:\Проекты\watch-together-media-capture-livekit"
+cd watch-together-media-capture-livekit
 docker compose up -d livekit
 docker compose ps
 ```
 
-Локальный LiveKit слушает `ws://127.0.0.1:17880`. Development API key и secret находятся только в `.env` и `livekit.yaml`; frontend их не читает.
+Локальный LiveKit слушает `ws://127.0.0.1:17880`. Development-only API key и secret находятся только в `.env` и `livekit.yaml`; frontend их не читает. Эти значения предназначены только для локального PoC.
 
 ## 6. Как запустить token endpoint
 
 В отдельном терминале:
 
 ```powershell
-cd "E:\Проекты\watch-together-media-capture-livekit"
+cd watch-together-media-capture-livekit
 pnpm dev:token
 ```
 
@@ -75,7 +75,7 @@ GET http://127.0.0.1:3001/token?room=wt-poc-room&identity=host-1&role=host
 В отдельном терминале:
 
 ```powershell
-cd "E:\Проекты\watch-together-media-capture-livekit"
+cd watch-together-media-capture-livekit
 pnpm dev:frontend
 ```
 
@@ -154,7 +154,7 @@ Chrome/Edge DevTools -> Console
 LiveKit server logs:
 
 ```powershell
-cd "E:\Проекты\watch-together-media-capture-livekit"
+cd watch-together-media-capture-livekit
 pnpm logs:livekit
 ```
 
@@ -176,7 +176,7 @@ docker compose exec livekit /livekit-server --version
 ## Автоматические проверки
 
 ```powershell
-cd "E:\Проекты\watch-together-media-capture-livekit"
+cd watch-together-media-capture-livekit
 pnpm test
 pnpm build
 ```

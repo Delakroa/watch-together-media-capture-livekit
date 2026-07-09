@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://watch-together.local/contracts/schemas/problem-details.schema.json",
+  "title": "Ошибка Watch Together",
+  "description": "Расширение RFC 9457 Problem Details стабильным кодом и correlation ID.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "title",
+    "status",
+    "code",
+    "detail",
+    "instance",
+    "correlationId",
+    "retryable"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "format": "uri",
+      "description": "Стабильный URI типа ошибки."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "status": {
+      "type": "integer",
+      "minimum": 400,
+      "maximum": 599
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$",
+      "description": "Стабильный машинный код. Клиент обязан безопасно обрабатывать неизвестные коды."
+    },
+    "detail": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "Безопасное описание без секретов, локальных путей и stack trace."
+    },
+    "instance": {
+      "type": "string",
+      "pattern": "^/api/v1/",
+      "maxLength": 256
+    },
+    "correlationId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "violations": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "code", "message"],
+        "properties": {
+          "field": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      }
+    }
+  }
+}

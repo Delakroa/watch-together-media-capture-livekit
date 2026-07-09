@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://watch-together.local/contracts/schemas/common.schema.json",
+  "title": "Общие модели Watch Together",
+  "$defs": {
+    "RoomId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{22}$",
+      "description": "Публичный случайный идентификатор комнаты с энтропией не менее 128 бит."
+    },
+    "ParticipantId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "DisplayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "RoomStatus": {
+      "type": "string",
+      "enum": [
+        "CREATED",
+        "WAITING_FOR_HOST",
+        "READY",
+        "PLAYING",
+        "PAUSED",
+        "HOST_DISCONNECTED",
+        "CLOSED",
+        "EXPIRED"
+      ]
+    },
+    "ParticipantRole": {
+      "type": "string",
+      "enum": ["HOST", "GUEST"]
+    },
+    "Participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participantId",
+        "displayName",
+        "role",
+        "online",
+        "joinedAt"
+      ],
+      "properties": {
+        "participantId": {
+          "$ref": "#/$defs/ParticipantId"
+        },
+        "displayName": {
+          "$ref": "#/$defs/DisplayName"
+        },
+        "role": {
+          "$ref": "#/$defs/ParticipantRole"
+        },
+        "online": {
+          "type": "boolean"
+        },
+        "joinedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "MediaState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["displayName", "durationMs", "positionMs", "paused"],
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Безопасное отображаемое имя без локального пути."
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "positionMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "paused": {
+          "type": "boolean"
+        }
+      }
+    },
+    "RoomSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "roomId",
+        "status",
+        "hostParticipantId",
+        "participants",
+        "media",
+        "roomVersion",
+        "expiresAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "roomId": {
+          "$ref": "#/$defs/RoomId"
+        },
+        "status": {
+          "$ref": "#/$defs/RoomStatus"
+        },
+        "hostParticipantId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ParticipantId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "participants": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/Participant"
+          }
+        },
+        "media": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MediaState"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "roomVersion": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

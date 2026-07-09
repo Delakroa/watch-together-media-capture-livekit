@@ -1,0 +1,17 @@
+{
+  "type": "https://watch-together.local/problems/validation-failed",
+  "title": "Запрос не прошёл валидацию",
+  "status": 422,
+  "code": "VALIDATION_FAILED",
+  "detail": "Исправьте отмеченные поля и повторите запрос.",
+  "instance": "/api/v1/rooms",
+  "correlationId": "1570c660-a0f4-4207-a27f-f3e04a40db89",
+  "retryable": false,
+  "violations": [
+    {
+      "field": "hostDisplayName",
+      "code": "INVALID_DISPLAY_NAME",
+      "message": "Имя должно содержать от 1 до 64 символов."
+    }
+  ]
+}

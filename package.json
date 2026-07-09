@@ -8,12 +8,13 @@
     "backend:build": "node scripts/run-gradle.mjs :backend:build --no-daemon",
     "backend:test": "node scripts/run-gradle.mjs :backend:test --no-daemon",
     "build": "pnpm -r --if-present build && pnpm backend:build",
-    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build",
-    "check:ci": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:ci && pnpm build",
+    "check": "pnpm contracts:check && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build",
+    "check:ci": "pnpm contracts:check && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:ci && pnpm build",
+    "contracts:check": "node scripts/check-contracts.mjs",
     "dev:frontend": "pnpm --filter @watch-together/frontend dev",
     "dev:poc": "pnpm --filter @watch-together/poc-media-capture-livekit dev",
     "dev:poc:down": "pnpm --filter @watch-together/poc-media-capture-livekit dev:down",
-    "format:check": "pnpm -r --if-present format:check",
+    "format:check": "prettier --check contracts scripts/check-contracts.mjs docs/CONVENTIONS.md docs/DEFINITION_OF_DONE.md docs/WT-106_CONTRACTS.md && pnpm -r --if-present format:check",
     "infra:check": "node scripts/check-infra.mjs",
     "infra:config": "docker compose -f infra/compose.yaml config",
     "infra:down": "docker compose -f infra/compose.yaml down",
@@ -26,5 +27,11 @@
     "test": "pnpm -r --if-present test && pnpm backend:test",
     "test:ci": "pnpm -r --if-present test:ci && pnpm backend:test",
     "typecheck": "pnpm -r --if-present typecheck"
+  },
+  "devDependencies": {
+    "@apidevtools/swagger-parser": "12.1.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "prettier": "3.9.4"
   }
 }

@@ -51,7 +51,7 @@ jobs:
       - name: Установить зависимости
         run: pnpm install --frozen-lockfile
 
-      - name: Запустить quality gate
+      - name: Проверить contracts, tests, lint и build
         run: pnpm check:ci
 
       - name: Сохранить отчеты тестов

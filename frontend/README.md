@@ -66,3 +66,5 @@ pnpm --filter @watch-together/frontend build
 Реализованы стартовая страница, маршрутизация, Error Boundary, адаптивная оболочка и вызовы `/api/v1/health` и `/api/v1/version`.
 
 Комнаты, аутентификация, LiveKit, media lifecycle, чат и голос находятся вне области WT-103.
+
+REST, WebSocket и error contracts находятся в [`../contracts`](../contracts/README.md). Все внешние payload должны проходить runtime validation до попадания в application state.

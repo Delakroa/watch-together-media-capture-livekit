@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "eventId": "d3072590-9131-4abc-9012-8fa6e42f21d3",
+  "type": "participant.heartbeat",
+  "roomId": "AbCdEfGhIjKlMnOpQrStUv",
+  "participantId": "8e7d79a8-a49f-48cc-a409-f07890dd3218",
+  "expectedRoomVersion": 42,
+  "occurredAt": "2026-07-09T07:30:00Z",
+  "payload": {
+    "sentAt": "2026-07-09T07:30:00Z"
+  }
+}

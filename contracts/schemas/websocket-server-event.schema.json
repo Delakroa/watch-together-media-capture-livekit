@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://watch-together.local/contracts/schemas/websocket-server-event.schema.json",
+  "title": "Server WebSocket event",
+  "description": "Неизвестный type сохраняет валидный envelope и должен безопасно игнорироваться клиентом.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "type",
+    "roomId",
+    "participantId",
+    "roomVersion",
+    "occurredAt",
+    "payload"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "eventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "type": {
+      "anyOf": [
+        {
+          "const": "error"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)+$"
+        }
+      ]
+    },
+    "roomId": {
+      "$ref": "https://watch-together.local/contracts/schemas/common.schema.json#/$defs/RoomId"
+    },
+    "participantId": {
+      "anyOf": [
+        {
+          "$ref": "https://watch-together.local/contracts/schemas/common.schema.json#/$defs/ParticipantId"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "roomVersion": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "room.snapshot"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "https://watch-together.local/contracts/schemas/common.schema.json#/$defs/RoomSnapshot"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "room.state.changed"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "updatedAt"],
+            "properties": {
+              "status": {
+                "$ref": "https://watch-together.local/contracts/schemas/common.schema.json#/$defs/RoomStatus"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "participant.joined"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "https://watch-together.local/contracts/schemas/common.schema.json#/$defs/Participant"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "participant.left"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["participantId", "reason"],
+            "properties": {
+              "participantId": {
+                "$ref": "https://watch-together.local/contracts/schemas/common.schema.json#/$defs/ParticipantId"
+              },
+              "reason": {
+                "type": "string",
+                "enum": ["LEFT", "TIMEOUT", "REMOVED", "ROOM_CLOSED"]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "host.disconnected"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reconnectDeadline"],
+            "properties": {
+              "reconnectDeadline": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "host.reconnected"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["participantId"],
+            "properties": {
+              "participantId": {
+                "$ref": "https://watch-together.local/contracts/schemas/common.schema.json#/$defs/ParticipantId"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "room.closed"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "closedAt"],
+            "properties": {
+              "reason": {
+                "type": "string",
+                "enum": ["HOST_CLOSED", "EXPIRED", "INTERNAL"]
+              },
+              "closedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "error"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "https://watch-together.local/contracts/schemas/problem-details.schema.json"
+          }
+        }
+      }
+    }
+  ]
+}

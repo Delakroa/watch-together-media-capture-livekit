@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "eventId": "5715dd90-4f3c-4d16-ab8f-d4d4056f81a5",
+  "type": "room.future.capability",
+  "roomId": "AbCdEfGhIjKlMnOpQrStUv",
+  "participantId": null,
+  "roomVersion": 43,
+  "occurredAt": "2026-07-09T07:30:02Z",
+  "payload": {
+    "safeToIgnore": true
+  }
+}

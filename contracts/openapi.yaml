@@ -1,0 +1,354 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+
+info:
+  title: Watch Together REST API
+  version: 1.0.0
+  description: |
+    Контракт product backend. Эндпоинты с `x-implementation-status: planned`
+    фиксируют границу для P2 и не считаются реализованными до соответствующего тикета.
+
+servers:
+  - url: /
+    description: Same-origin API через development или production reverse proxy
+
+tags:
+  - name: System
+    description: Системные endpoints
+  - name: Rooms
+    description: Жизненный цикл приватной комнаты
+
+paths:
+  /api/v1/health:
+    get:
+      tags: [System]
+      operationId: getHealth
+      summary: Проверить доступность backend
+      x-implementation-status: implemented
+      responses:
+        "200":
+          description: Backend доступен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/v1/version:
+    get:
+      tags: [System]
+      operationId: getVersion
+      summary: Получить версию backend
+      x-implementation-status: implemented
+      responses:
+        "200":
+          description: Версия backend
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionResponse"
+
+  /api/v1/rooms:
+    post:
+      tags: [Rooms]
+      operationId: createRoom
+      summary: Создать приватную комнату
+      x-implementation-status: planned
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoomRequest"
+      responses:
+        "201":
+          description: Комната создана, host session установлена
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+            Location:
+              description: API-адрес созданной комнаты
+              schema:
+                type: string
+                pattern: ^/api/v1/rooms/
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateRoomResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/rooms/{roomId}:
+    parameters:
+      - $ref: "#/components/parameters/RoomId"
+    get:
+      tags: [Rooms]
+      operationId: getRoom
+      summary: Получить authoritative room snapshot
+      x-implementation-status: planned
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Текущий snapshot комнаты
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomSnapshot"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/RoomUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/rooms/{roomId}/join:
+    parameters:
+      - $ref: "#/components/parameters/RoomId"
+    post:
+      tags: [Rooms]
+      operationId: joinRoom
+      summary: Присоединить гостя к комнате
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinRoomRequest"
+      responses:
+        "200":
+          description: Гость присоединён, session credential установлена в HttpOnly cookie
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinRoomResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/RoomUnavailable"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/rooms/{roomId}/close:
+    parameters:
+      - $ref: "#/components/parameters/RoomId"
+    post:
+      tags: [Rooms]
+      operationId: closeRoom
+      summary: Закрыть комнату от имени host
+      x-implementation-status: planned
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/HostSecret"
+      responses:
+        "204":
+          description: Комната закрыта или уже была закрыта
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/RoomUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: wt_session
+      description: |
+        Opaque session credential. Production cookie: HttpOnly, Secure, SameSite=Strict.
+
+  parameters:
+    RoomId:
+      name: roomId
+      in: path
+      required: true
+      schema:
+        $ref: "./schemas/common.schema.json#/$defs/RoomId"
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Повтор того же запроса возвращает исходный результат; другой payload даёт conflict.
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+    HostSecret:
+      name: X-Host-Secret
+      in: header
+      required: true
+      description: Opaque host secret. Никогда не помещается в invite URL или логи.
+      schema:
+        type: string
+        minLength: 43
+        maxLength: 128
+        pattern: ^[A-Za-z0-9_-]+$
+
+  headers:
+    SessionCookie:
+      description: HttpOnly session cookie; Secure обязателен вне локальной разработки.
+      schema:
+        type: string
+
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, checkedAt]
+      properties:
+        status:
+          type: string
+          const: UP
+        checkedAt:
+          type: string
+          format: date-time
+
+    VersionResponse:
+      type: object
+      additionalProperties: false
+      required: [name, version, buildTime, apiVersion]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        buildTime:
+          type: string
+          minLength: 1
+        apiVersion:
+          type: string
+          const: v1
+
+    RoomSnapshot:
+      $ref: "./schemas/common.schema.json#/$defs/RoomSnapshot"
+
+    Participant:
+      $ref: "./schemas/common.schema.json#/$defs/Participant"
+
+    CreateRoomRequest:
+      type: object
+      additionalProperties: false
+      required: [hostDisplayName]
+      properties:
+        hostDisplayName:
+          $ref: "./schemas/common.schema.json#/$defs/DisplayName"
+
+    CreateRoomResponse:
+      type: object
+      additionalProperties: false
+      required: [room, hostSecret, invitePath]
+      properties:
+        room:
+          $ref: "#/components/schemas/RoomSnapshot"
+        hostSecret:
+          type: string
+          readOnly: true
+          minLength: 43
+          maxLength: 128
+          pattern: ^[A-Za-z0-9_-]+$
+        invitePath:
+          type: string
+          pattern: ^/rooms/[A-Za-z0-9_-]{22}$
+          description: Guest URL path без host secret.
+
+    JoinRoomRequest:
+      type: object
+      additionalProperties: false
+      required: [displayName]
+      properties:
+        displayName:
+          $ref: "./schemas/common.schema.json#/$defs/DisplayName"
+
+    JoinRoomResponse:
+      type: object
+      additionalProperties: false
+      required: [participant, room]
+      properties:
+        participant:
+          $ref: "#/components/schemas/Participant"
+        room:
+          $ref: "#/components/schemas/RoomSnapshot"
+
+    ProblemDetails:
+      $ref: "./schemas/problem-details.schema.json"
+
+  responses:
+    BadRequest:
+      description: Некорректный JSON или формат запроса
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    Unauthorized:
+      description: Session credential отсутствует или недействительна
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    Forbidden:
+      description: Участник не имеет права выполнить операцию
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    RoomUnavailable:
+      description: Комната недоступна; ответ не раскрывает, существовала ли она
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    Conflict:
+      description: Конфликт состояния, idempotency key или лимита участников
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    ValidationFailed:
+      description: Запрос не прошёл предметную валидацию
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    RateLimited:
+      description: Превышен допустимый темп запросов
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    InternalError:
+      description: Внутренняя ошибка без раскрытия реализации
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"

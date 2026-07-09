@@ -39,3 +39,5 @@ pnpm backend:bootRun
 WT-102 создает только backend foundation: воспроизводимую сборку, health/version REST endpoints, validation dependency, stateless security baseline, actuator и тесты.
 
 Вне области: rooms, participants, Redis, PostgreSQL, Flyway migrations, WebSocket state, LiveKit product tokens, chat, voice и persistence.
+
+REST, WebSocket и error contracts находятся в [`../contracts`](../contracts/README.md). Новые product endpoints реализуются contract-first и не должны расходиться с OpenAPI/JSON Schema.

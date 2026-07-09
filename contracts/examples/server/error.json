@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "eventId": "76255217-b986-4276-9b29-a5a129d94cbd",
+  "type": "error",
+  "roomId": "AbCdEfGhIjKlMnOpQrStUv",
+  "participantId": "8e7d79a8-a49f-48cc-a409-f07890dd3218",
+  "roomVersion": 42,
+  "occurredAt": "2026-07-09T07:30:03Z",
+  "payload": {
+    "type": "https://watch-together.local/problems/room-state-conflict",
+    "title": "Состояние комнаты изменилось",
+    "status": 409,
+    "code": "ROOM_STATE_CONFLICT",
+    "detail": "Получите актуальный snapshot и повторите безопасную операцию.",
+    "instance": "/api/v1/rooms/AbCdEfGhIjKlMnOpQrStUv/events",
+    "correlationId": "90c50d3b-7f89-46f0-9d3c-03b41c951bba",
+    "retryable": true
+  }
+}

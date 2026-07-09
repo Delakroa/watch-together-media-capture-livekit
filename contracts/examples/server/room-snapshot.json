@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "eventId": "3877f87a-aaf2-4ea7-94cc-e5ceb74f38a7",
+  "type": "room.snapshot",
+  "roomId": "AbCdEfGhIjKlMnOpQrStUv",
+  "participantId": null,
+  "roomVersion": 42,
+  "occurredAt": "2026-07-09T07:30:01Z",
+  "payload": {
+    "roomId": "AbCdEfGhIjKlMnOpQrStUv",
+    "status": "PLAYING",
+    "hostParticipantId": "d0f8636f-e21e-4d7b-9fce-6fb0e6fb5678",
+    "participants": [
+      {
+        "participantId": "d0f8636f-e21e-4d7b-9fce-6fb0e6fb5678",
+        "displayName": "Host",
+        "role": "HOST",
+        "online": true,
+        "joinedAt": "2026-07-09T07:20:00Z"
+      },
+      {
+        "participantId": "8e7d79a8-a49f-48cc-a409-f07890dd3218",
+        "displayName": "Guest",
+        "role": "GUEST",
+        "online": true,
+        "joinedAt": "2026-07-09T07:25:00Z"
+      }
+    ],
+    "media": {
+      "displayName": "selected-video.mp4",
+      "durationMs": 7200000,
+      "positionMs": 183000,
+      "paused": false
+    },
+    "roomVersion": 42,
+    "expiresAt": "2026-07-09T11:20:00Z",
+    "updatedAt": "2026-07-09T07:30:01Z"
+  }
+}

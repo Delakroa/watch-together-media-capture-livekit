@@ -15,13 +15,15 @@ P0 технически подтвержден.
 - WT-103 добавил React frontend foundation.
 - WT-104 добавил запускаемый Docker Compose stack.
 - WT-105 добавил CI quality gate, test reports и dependency security scan.
+- WT-106 зафиксировал REST, WebSocket и error contracts.
 
-Проект находится в конце P1 foundation. Жизненный цикл комнат, persistence integration, chat, voice и product-токены LiveKit намеренно оставлены для следующих тикетов.
+P1 foundation завершен. Следующий этап: P2 room lifecycle. Persistence integration, chat, voice и product-токены LiveKit намеренно оставлены для следующих тикетов.
 
 ## Структура репозитория
 
 ```text
 backend/                    Spring Boot backend skeleton.
+contracts/                  OpenAPI, JSON Schema и contract examples.
 frontend/                   React frontend foundation.
 infra/                      Локальный Docker Compose stack.
 docs/                       Планы, ADR, заметки по совместимости и качеству.
@@ -39,6 +41,7 @@ pnpm install
 Запустить все текущие проверки:
 
 ```bash
+pnpm contracts:check
 pnpm test
 pnpm build
 pnpm check
@@ -111,6 +114,8 @@ Media PoC остается референсной реализацией в [poc
 - [WT-103 React frontend](docs/WT-103_REACT_FRONTEND.md)
 - [WT-104 локальная инфраструктура](docs/WT-104_LOCAL_INFRASTRUCTURE.md)
 - [WT-105 CI quality gate](docs/WT-105_CI_QUALITY_GATE.md)
+- [WT-106 контракты](docs/WT-106_CONTRACTS.md)
+- [Definition of Done](docs/DEFINITION_OF_DONE.md)
 
 ## Правила foundation
 

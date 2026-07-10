@@ -628,6 +628,15 @@ describe("HomePage", () => {
     await waitFor(() => {
       expect(screen.getAllByText("Ждём host").length).toBeGreaterThan(0);
     });
+    const player = document.querySelector(".remote-player") as HTMLDivElement;
+    const requestFullscreen = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(player, "requestFullscreen", {
+      configurable: true,
+      value: requestFullscreen,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Развернуть видео на весь экран" }));
+    expect(requestFullscreen).toHaveBeenCalledTimes(1);
 
     const videoTrack = createRemoteTrack("video");
     const audioTrack = createRemoteTrack("audio");
@@ -869,11 +878,14 @@ describe("HomePage", () => {
     const videoTrack = createTrack("video");
     const audioTrack = createTrack("audio");
     const publishStream = createStream([videoTrack], [audioTrack]);
-    const videoStubs = [createVideoStub(), createVideoStub(publishStream)];
     const realCreateElement = document.createElement.bind(document);
+    const videoStubs = [
+      createVideoStub(undefined, realCreateElement),
+      createVideoStub(publishStream, realCreateElement),
+    ];
     vi.spyOn(document, "createElement").mockImplementation((tagName: string) =>
       tagName === "video"
-        ? ((videoStubs.shift() ?? createVideoStub(publishStream)) as unknown as HTMLElement)
+        ? (videoStubs.shift() ?? createVideoStub(publishStream, realCreateElement))
         : realCreateElement(tagName),
     );
 
@@ -895,6 +907,10 @@ describe("HomePage", () => {
     await user.click(screen.getByRole("button", { name: "Опубликовать" }));
 
     expect(await screen.findByText("Live · 2 дорожки")).toBeInTheDocument();
+    expect(await screen.findByText("Совместный просмотр")).toBeInTheDocument();
+    const hostPreview = document.querySelector(".remote-player__video") as HTMLVideoElement;
+    expect(hostPreview.srcObject).toBe(publishStream);
+    expect(hostPreview.muted).toBe(false);
     expect(liveKitMock.rooms[0]?.localParticipant.publishTrack).toHaveBeenCalledWith(
       videoTrack,
       expect.objectContaining({ name: "movie-video", source: "camera" }),
@@ -1056,32 +1072,55 @@ function createStream(videoTracks: MediaStreamTrack[], audioTracks: MediaStreamT
   } as unknown as MediaStream;
 }
 
-function createVideoStub(stream = createStream([createTrack("video")])) {
+function createVideoStub(
+  stream = createStream([createTrack("video")]),
+  createElement: typeof document.createElement = document.createElement.bind(document),
+) {
   const listeners = new Map<string, Set<() => void>>();
-  const stub: Record<string, unknown> = {
-    duration: 5400,
-    currentTime: 0,
-    ended: false,
-    paused: false,
-    videoWidth: 1920,
-    readyState: 0,
-    preload: "",
-    onloadedmetadata: null,
-    onerror: null,
+  const stub = createElement("video") as HTMLVideoElement & {
+    captureStream: () => MediaStream;
+  };
+
+  Object.defineProperties(stub, {
+    duration: { configurable: true, value: 5400 },
+    ended: { configurable: true, value: false },
+    paused: { configurable: true, value: false },
+    readyState: { configurable: true, value: 0 },
+    videoWidth: { configurable: true, value: 1920 },
+  });
+
+  Object.assign(stub, {
     canPlayType: vi.fn().mockReturnValue("probably"),
     captureStream: vi.fn(() => stream),
     play: vi.fn().mockResolvedValue(undefined),
     pause: vi.fn(),
     removeAttribute: vi.fn(),
     load: vi.fn(),
-    addEventListener: vi.fn((type: string, listener: EventListenerOrEventListenerObject) => {
+  });
+
+  const addEventListener = stub.addEventListener.bind(stub);
+  const removeEventListener = stub.removeEventListener.bind(stub);
+  stub.addEventListener = vi.fn(
+    (
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: boolean | AddEventListenerOptions,
+    ) => {
       const callback = listener as () => void;
       listeners.set(type, new Set([...(listeners.get(type) ?? []), callback]));
-    }),
-    removeEventListener: vi.fn((type: string, listener: EventListenerOrEventListenerObject) => {
+      addEventListener(type, listener, options);
+    },
+  );
+  stub.removeEventListener = vi.fn(
+    (
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: boolean | EventListenerOptions,
+    ) => {
       listeners.get(type)?.delete(listener as () => void);
-    }),
-  };
+      removeEventListener(type, listener, options);
+    },
+  );
 
   Object.defineProperty(stub, "src", {
     set(_src: string) {

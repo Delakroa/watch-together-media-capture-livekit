@@ -209,6 +209,7 @@ export function useRoomSession(routeRoomId?: string) {
   const fileDiagnosticsRequestIdRef = useRef(0);
   const fileObjectUrlRef = useRef<string | null>(null);
   const hostPlaybackCleanupRef = useRef<(() => void) | null>(null);
+  const hostPreviewElementRef = useRef<HTMLVideoElement | null>(null);
   const hostPublicationRecoveryRequestedRef = useRef(false);
   const filePublicationRef = useRef<FilePublication | null>(null);
   const filePublicationRequestIdRef = useRef(0);
@@ -338,6 +339,55 @@ export function useRoomSession(routeRoomId?: string) {
     playbackStateReceiverRef.current?.setVideoElement(elements.videoElement);
   }, []);
 
+  const detachHostPreview = useCallback((videoElement: HTMLVideoElement | null) => {
+    if (!videoElement) {
+      return;
+    }
+
+    videoElement.pause();
+    videoElement.removeAttribute("src");
+    videoElement.srcObject = null;
+    videoElement.load();
+  }, []);
+
+  const attachHostPreview = useCallback((publication: FilePublication | null) => {
+    const videoElement = hostPreviewElementRef.current;
+    if (!videoElement || !publication) {
+      return;
+    }
+
+    videoElement.autoplay = true;
+    videoElement.muted = false;
+    videoElement.playsInline = true;
+    videoElement.srcObject = publication.stream;
+    void videoElement.play().catch((error: unknown) => {
+      if (isBenignPlayInterruption(error)) {
+        return;
+      }
+
+      setState((current) => ({
+        ...current,
+        hostPlaybackError:
+          error instanceof Error ? error.message : "Не удалось показать локальный preview.",
+      }));
+    });
+  }, []);
+
+  const setHostPreviewElement = useCallback(
+    (videoElement: HTMLVideoElement | null) => {
+      if (hostPreviewElementRef.current && hostPreviewElementRef.current !== videoElement) {
+        detachHostPreview(hostPreviewElementRef.current);
+      }
+
+      hostPreviewElementRef.current = videoElement;
+
+      if (videoElement) {
+        attachHostPreview(filePublicationRef.current);
+      }
+    },
+    [attachHostPreview, detachHostPreview],
+  );
+
   const stopHostPlaybackTracking = useCallback(() => {
     const cleanup = hostPlaybackCleanupRef.current;
     hostPlaybackCleanupRef.current = null;
@@ -354,13 +404,14 @@ export function useRoomSession(routeRoomId?: string) {
   const stopCurrentFilePublication = useCallback(() => {
     const publication = filePublicationRef.current;
     filePublicationRef.current = null;
+    detachHostPreview(hostPreviewElementRef.current);
     stopPlaybackStatePublisher();
     stopHostPlaybackTracking();
 
     if (publication) {
       stopLiveKitFilePublication(liveKitConnectionRef.current?.room ?? null, publication);
     }
-  }, [stopHostPlaybackTracking, stopPlaybackStatePublisher]);
+  }, [detachHostPreview, stopHostPlaybackTracking, stopPlaybackStatePublisher]);
 
   const stopFilePublication = useCallback(() => {
     hostPublicationRecoveryRequestedRef.current = false;
@@ -510,7 +561,16 @@ export function useRoomSession(routeRoomId?: string) {
 
     try {
       await publication.videoElement.play();
+      attachHostPreview(publication);
     } catch (error) {
+      if (isBenignPlayInterruption(error)) {
+        setState((current) => ({
+          ...current,
+          hostPlaybackError: null,
+        }));
+        return;
+      }
+
       setState((current) => ({
         ...current,
         hostPlaybackError:
@@ -518,7 +578,7 @@ export function useRoomSession(routeRoomId?: string) {
         hostPlaybackStatus: "paused",
       }));
     }
-  }, []);
+  }, [attachHostPreview]);
 
   const hostPause = useCallback(() => {
     filePublicationRef.current?.videoElement.pause();
@@ -587,6 +647,7 @@ export function useRoomSession(routeRoomId?: string) {
       }
 
       filePublicationRef.current = publication;
+      attachHostPreview(publication);
       playbackStatePublisherRef.current = createHostPlaybackStatePublisher(
         connection.room,
         publication.videoElement,
@@ -617,6 +678,7 @@ export function useRoomSession(routeRoomId?: string) {
       }));
     }
   }, [
+    attachHostPreview,
     startHostPlaybackTracking,
     state.fileResult,
     state.liveKitStatus,
@@ -1459,6 +1521,7 @@ export function useRoomSession(routeRoomId?: string) {
     routeRoomId,
     selectFile,
     sendChatMessage,
+    setHostPreviewElement,
     setRemotePlaybackElements,
     stopFilePublication,
     stopVoiceChat,
@@ -1639,6 +1702,18 @@ function extractRoomId(value: string) {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Не удалось выполнить действие.";
+}
+
+function isBenignPlayInterruption(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.name === "AbortError" ||
+    error.message.includes("interrupted by a call to pause") ||
+    error.message.includes("interrupted by a new load request")
+  );
 }
 
 function isTerminalRoomStatus(status: RoomSnapshot["status"]) {

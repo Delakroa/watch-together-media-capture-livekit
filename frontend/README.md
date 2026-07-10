@@ -120,6 +120,13 @@ WT-306 добавляет playback state sync:
 - `playing` вызывает `play()` на guest remote video, `paused`, `ended` и `idle` вызывают `pause()`;
 - guest UI показывает `Host playback`, время, revision и имя файла.
 
-Точная VOD-синхронизация seek, чат и голос остаются вне текущего frontend product UI.
+WT-401 добавляет управление воспроизведением для host:
+
+- кнопки play/pause и seek-бар отображаются когда файл опубликован (`filePublicationStatus === "live"`);
+- `startHostPlaybackTracking` слушает DOM события видеоэлемента и синхронизирует их в React state;
+- `hostPlay()` перехватывает rejection `video.play()` и устанавливает `hostPlaybackStatus: "paused"` + сообщение ошибки;
+- `hostSeek` зажимает отрицательные значения до 0; seek-бар не вызывает `hostSeek` во время drag — только при `onPointerUp`.
+
+Чат и голос остаются вне текущего frontend product UI.
 
 REST, WebSocket и error contracts находятся в [`../contracts`](../contracts/README.md). Все внешние payload должны проходить runtime validation до попадания в состояние приложения.

@@ -338,7 +338,7 @@ export function HomePage() {
           )}
         </div>
 
-        {!room && (
+        {(!room || roomClosed) && (
           <div className="room-actions">
             <form className="room-form" onSubmit={handleCreateRoom}>
               <label htmlFor="host-display-name">Создать комнату</label>

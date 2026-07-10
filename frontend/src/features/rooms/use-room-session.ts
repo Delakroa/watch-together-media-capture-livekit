@@ -69,6 +69,9 @@ const MAX_CHAT_MESSAGE_LENGTH = 1000;
 const HOST_SECRET_STORAGE_PREFIX = "watch-together.host-secret.";
 const MAX_ROOM_RECONNECT_ATTEMPTS = 10;
 const ROOM_RECONNECT_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 15_000] as const;
+// Server closes the room WebSocket with a normal code (1000) on intentional
+// shutdown (room.closed, participant.left) — those must not trigger a reconnect.
+const NORMAL_WS_CLOSE_CODE = 1000;
 
 export type RoomConnectionStatus =
   "idle" | "connecting" | "open" | "reconnecting" | "closed" | "error";
@@ -1113,6 +1116,10 @@ export function useRoomSession(routeRoomId?: string) {
       const latestRoom = roomRef.current;
       const latestParticipant = participantRef.current;
       if (!latestRoom || !latestParticipant || isTerminalRoomStatus(latestRoom.status)) {
+        setState((current) => ({
+          ...current,
+          connectionStatus: current.room ? "closed" : "idle",
+        }));
         return;
       }
 
@@ -1214,14 +1221,22 @@ export function useRoomSession(routeRoomId?: string) {
         }));
       };
 
-      socket.onclose = () => {
+      socket.onclose = (event) => {
         if (socketRef.current !== socket) {
           return;
         }
 
         socketRef.current = null;
         stopHeartbeat();
-        if (pendingActionRef.current !== "close") {
+
+        const currentRoom = roomRef.current;
+        const intentionalClose =
+          event.code === NORMAL_WS_CLOSE_CODE ||
+          pendingActionRef.current === "close" ||
+          pendingActionRef.current === "leave" ||
+          (currentRoom !== null && isTerminalRoomStatus(currentRoom.status));
+
+        if (!intentionalClose) {
           scheduleRoomReconnect();
           return;
         }
@@ -1233,7 +1248,10 @@ export function useRoomSession(routeRoomId?: string) {
             current.pendingAction === "close"
               ? addLocalEvent(current.events, "Комната закрыта")
               : current.events,
-          pendingAction: current.pendingAction === "close" ? null : current.pendingAction,
+          pendingAction:
+            current.pendingAction === "close" || current.pendingAction === "leave"
+              ? null
+              : current.pendingAction,
           room:
             current.pendingAction === "close" && current.room
               ? markRoomClosed(current.room)

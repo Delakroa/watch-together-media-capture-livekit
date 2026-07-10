@@ -884,6 +884,22 @@ a {
   outline-offset: 3px;
 }
 
+.remote-player:fullscreen {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  background: #000;
+  aspect-ratio: auto;
+}
+
+.remote-player:-webkit-full-screen {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  background: #000;
+  aspect-ratio: auto;
+}
+
 .remote-player__overlay {
   position: absolute;
   inset: 0;
@@ -1242,7 +1258,7 @@ a {
 }
 
 .button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.56;
 }
 

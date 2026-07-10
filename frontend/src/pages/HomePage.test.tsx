@@ -280,6 +280,96 @@ describe("HomePage", () => {
     expect(screen.getByText("Guest вошёл в комнату")).toBeInTheDocument();
   });
 
+  it("после закрытия комнаты снова показывает формы для новой комнаты", async () => {
+    vi.stubGlobal("WebSocket", MockWebSocket);
+    const user = userEvent.setup();
+
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+
+      if (url.endsWith("/health")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ status: "UP", checkedAt: "2026-07-08T16:30:00Z" }), {
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.endsWith("/version")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              name: "watch-together-backend",
+              version: "0.1.0",
+              buildTime: "2026-07-08T16:00:00Z",
+              apiVersion: "v1",
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+
+      if (url.endsWith("/api/v1/rooms") && init?.method === "POST") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              room: createRoomSnapshot(),
+              hostSecret: "a".repeat(43),
+              invitePath: `/rooms/${roomId}`,
+            }),
+            { status: 201 },
+          ),
+        );
+      }
+
+      if (url.endsWith(`/api/v1/rooms/${roomId}/livekit-token`) && init?.method === "POST") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              token: "header.payload.signature",
+              liveKitUrl: "ws://127.0.0.1:7880",
+              roomName: roomId,
+              participantId: hostId,
+              participantIdentity: hostId,
+              role: "HOST",
+              canPublish: true,
+              canPublishData: true,
+              expiresAt: "2026-07-09T07:30:00Z",
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+
+    renderPage();
+
+    await screen.findByText("Сервис готов");
+    await user.click(screen.getByRole("button", { name: "Создать" }));
+
+    expect(await screen.findByText("Состояние комнаты")).toBeInTheDocument();
+    // Пока комната активна, формы создания/входа скрыты.
+    expect(screen.queryByLabelText("Invite-ссылка или ID комнаты")).not.toBeInTheDocument();
+
+    MockWebSocket.instances[0]?.open();
+    MockWebSocket.instances[0]?.message({
+      schemaVersion: 1,
+      eventId: "a4394a01-d223-4849-8e87-73017750d0c8",
+      type: "room.closed",
+      roomId,
+      participantId: null,
+      roomVersion: 2,
+      occurredAt: "2026-07-09T07:31:00Z",
+      payload: { reason: "HOST_CLOSED", closedAt: "2026-07-09T07:31:00Z" },
+    });
+
+    // После закрытия формы снова доступны, и можно создать новую комнату.
+    expect(await screen.findByLabelText("Invite-ссылка или ID комнаты")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Создать" })).toBeEnabled();
+  });
+
   it("восстанавливает комнату при открытии invite route с активной session", async () => {
     vi.stubGlobal("WebSocket", MockWebSocket);
 

@@ -9,6 +9,8 @@ import {
   Link as LinkIcon,
   LogIn,
   MonitorPlay,
+  Pause,
+  Play,
   Plus,
   Power,
   Radio,
@@ -54,6 +56,7 @@ export function HomePage() {
   const [joinRoomIdDraft, setJoinRoomIdDraft] = useState("");
   const [inviteCopied, setInviteCopied] = useState(false);
   const [roomIdCopied, setRoomIdCopied] = useState(false);
+  const [seekBarValue, setSeekBarValue] = useState<number | null>(null);
   const joinRoomId = joinRoomIdDraft || routeRoomId || "";
   const isOnline = !isPending && !isError;
   const room = roomSession.room;
@@ -406,6 +409,64 @@ export function HomePage() {
                     </p>
                   )}
                 </div>
+
+                {roomSession.filePublicationStatus === "live" && (
+                  <div className="host-controls" aria-label="Управление воспроизведением">
+                    <div className="host-controls__buttons">
+                      {roomSession.hostPlaybackStatus === "playing" ? (
+                        <button
+                          className="button host-controls__play"
+                          type="button"
+                          onClick={() => roomSession.hostPause()}
+                          aria-label="Пауза"
+                        >
+                          <Pause size={18} aria-hidden="true" />
+                          Пауза
+                        </button>
+                      ) : (
+                        <button
+                          className="button button--primary host-controls__play"
+                          type="button"
+                          disabled={roomSession.hostPlaybackStatus === "ended"}
+                          onClick={() => void roomSession.hostPlay()}
+                          aria-label="Воспроизвести"
+                        >
+                          <Play size={18} aria-hidden="true" />
+                          Играть
+                        </button>
+                      )}
+                      <span className="host-controls__time">
+                        {formatDurationMs(
+                          (seekBarValue ?? roomSession.hostPlaybackCurrentTime) * 1000,
+                        )}
+                        {roomSession.hostPlaybackDuration
+                          ? ` / ${formatDurationMs(roomSession.hostPlaybackDuration * 1000)}`
+                          : ""}
+                      </span>
+                    </div>
+
+                    <input
+                      className="host-controls__seek"
+                      type="range"
+                      min={0}
+                      max={roomSession.hostPlaybackDuration ?? 0}
+                      step={0.5}
+                      value={seekBarValue ?? roomSession.hostPlaybackCurrentTime}
+                      aria-label="Перемотка"
+                      onChange={(e) => setSeekBarValue(Number(e.target.value))}
+                      onPointerUp={(e) => {
+                        roomSession.hostSeek(Number((e.target as HTMLInputElement).value));
+                        setSeekBarValue(null);
+                      }}
+                    />
+
+                    {roomSession.hostPlaybackError && (
+                      <p className="file-picker__error" role="alert">
+                        {roomSession.hostPlaybackError}
+                      </p>
+                    )}
+                  </div>
+                )}
               </section>
             )}
 

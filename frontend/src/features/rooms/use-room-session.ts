@@ -58,6 +58,7 @@ export type RoomConnectionStatus = "idle" | "connecting" | "open" | "closed" | "
 export type RoomActionStatus = "create" | "join" | "restore" | "leave" | "close" | null;
 export type FileStatus = "idle" | "checking" | "ready" | "error";
 export type FilePublicationStatus = "idle" | "publishing" | "live" | "error";
+export type HostPlaybackStatus = "idle" | "playing" | "paused" | "ended";
 
 export type { FileDiagnosticsResult, PlaybackStatus, RemotePlaybackElements, RemotePlaybackStatus };
 
@@ -78,6 +79,10 @@ export type RoomSessionState = {
   filePublicationTrackCount: number;
   fileResult: FileDiagnosticsResult | null;
   fileStatus: FileStatus;
+  hostPlaybackCurrentTime: number;
+  hostPlaybackDuration: number | null;
+  hostPlaybackError: string | null;
+  hostPlaybackStatus: HostPlaybackStatus;
   hostSecret: string | null;
   invitePath: string | null;
   liveKitError: string | null;
@@ -113,6 +118,10 @@ const initialState: RoomSessionState = {
   filePublicationTrackCount: 0,
   fileResult: null,
   fileStatus: "idle",
+  hostPlaybackCurrentTime: 0,
+  hostPlaybackDuration: null,
+  hostPlaybackError: null,
+  hostPlaybackStatus: "idle",
   hostSecret: null,
   invitePath: null,
   liveKitError: null,
@@ -142,6 +151,7 @@ export function useRoomSession(routeRoomId?: string) {
   const [state, setState] = useState<RoomSessionState>(initialState);
   const fileDiagnosticsRequestIdRef = useRef(0);
   const fileObjectUrlRef = useRef<string | null>(null);
+  const hostPlaybackCleanupRef = useRef<(() => void) | null>(null);
   const filePublicationRef = useRef<FilePublication | null>(null);
   const filePublicationRequestIdRef = useRef(0);
   const heartbeatTimerRef = useRef<number | null>(null);
@@ -229,15 +239,29 @@ export function useRoomSession(routeRoomId?: string) {
     playbackStateReceiverRef.current?.setVideoElement(elements.videoElement);
   }, []);
 
+  const stopHostPlaybackTracking = useCallback(() => {
+    const cleanup = hostPlaybackCleanupRef.current;
+    hostPlaybackCleanupRef.current = null;
+    cleanup?.();
+    setState((current) => ({
+      ...current,
+      hostPlaybackCurrentTime: 0,
+      hostPlaybackDuration: null,
+      hostPlaybackError: null,
+      hostPlaybackStatus: "idle",
+    }));
+  }, []);
+
   const stopCurrentFilePublication = useCallback(() => {
     const publication = filePublicationRef.current;
     filePublicationRef.current = null;
     stopPlaybackStatePublisher();
+    stopHostPlaybackTracking();
 
     if (publication) {
       stopLiveKitFilePublication(liveKitConnectionRef.current?.room ?? null, publication);
     }
-  }, [stopPlaybackStatePublisher]);
+  }, [stopHostPlaybackTracking, stopPlaybackStatePublisher]);
 
   const stopFilePublication = useCallback(() => {
     filePublicationRequestIdRef.current += 1;
@@ -321,6 +345,92 @@ export function useRoomSession(routeRoomId?: string) {
     [revokeFileUrl, stopCurrentFilePublication],
   );
 
+  const startHostPlaybackTracking = useCallback((videoElement: HTMLVideoElement) => {
+    const previousCleanup = hostPlaybackCleanupRef.current;
+    hostPlaybackCleanupRef.current = null;
+    previousCleanup?.();
+
+    const handlePlay = () =>
+      setState((current) => ({
+        ...current,
+        hostPlaybackError: null,
+        hostPlaybackStatus: "playing",
+      }));
+
+    const handlePause = () =>
+      setState((current) => ({
+        ...current,
+        hostPlaybackStatus: videoElement.ended ? "ended" : "paused",
+      }));
+
+    const handleEnded = () => setState((current) => ({ ...current, hostPlaybackStatus: "ended" }));
+
+    const handleTimeUpdate = () =>
+      setState((current) => ({
+        ...current,
+        hostPlaybackCurrentTime: videoElement.currentTime,
+      }));
+
+    const handleDurationChange = () =>
+      setState((current) => ({
+        ...current,
+        hostPlaybackDuration: Number.isFinite(videoElement.duration) ? videoElement.duration : null,
+      }));
+
+    videoElement.addEventListener("play", handlePlay);
+    videoElement.addEventListener("pause", handlePause);
+    videoElement.addEventListener("ended", handleEnded);
+    videoElement.addEventListener("timeupdate", handleTimeUpdate);
+    videoElement.addEventListener("durationchange", handleDurationChange);
+
+    hostPlaybackCleanupRef.current = () => {
+      videoElement.removeEventListener("play", handlePlay);
+      videoElement.removeEventListener("pause", handlePause);
+      videoElement.removeEventListener("ended", handleEnded);
+      videoElement.removeEventListener("timeupdate", handleTimeUpdate);
+      videoElement.removeEventListener("durationchange", handleDurationChange);
+    };
+
+    setState((current) => ({
+      ...current,
+      hostPlaybackCurrentTime: videoElement.currentTime,
+      hostPlaybackDuration: Number.isFinite(videoElement.duration) ? videoElement.duration : null,
+      hostPlaybackError: null,
+      hostPlaybackStatus: videoElement.ended ? "ended" : videoElement.paused ? "paused" : "playing",
+    }));
+  }, []);
+
+  const hostPlay = useCallback(async () => {
+    const publication = filePublicationRef.current;
+    if (!publication) {
+      return;
+    }
+
+    try {
+      await publication.videoElement.play();
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        hostPlaybackError:
+          error instanceof Error ? error.message : "Не удалось начать воспроизведение.",
+        hostPlaybackStatus: "paused",
+      }));
+    }
+  }, []);
+
+  const hostPause = useCallback(() => {
+    filePublicationRef.current?.videoElement.pause();
+  }, []);
+
+  const hostSeek = useCallback((seconds: number) => {
+    const publication = filePublicationRef.current;
+    if (!publication || !Number.isFinite(seconds)) {
+      return;
+    }
+
+    publication.videoElement.currentTime = Math.max(0, seconds);
+  }, []);
+
   const publishFile = useCallback(async () => {
     const file = state.fileResult;
     const connection = liveKitConnectionRef.current;
@@ -379,6 +489,7 @@ export function useRoomSession(routeRoomId?: string) {
         publication.videoElement,
         file.displayName,
       );
+      startHostPlaybackTracking(publication.videoElement);
       setState((current) => ({
         ...current,
         filePublicationError: null,
@@ -402,7 +513,12 @@ export function useRoomSession(routeRoomId?: string) {
         filePublicationTrackCount: 0,
       }));
     }
-  }, [state.fileResult, state.liveKitStatus, stopCurrentFilePublication]);
+  }, [
+    startHostPlaybackTracking,
+    state.fileResult,
+    state.liveKitStatus,
+    stopCurrentFilePublication,
+  ]);
 
   const disconnectLiveKit = useCallback(
     (nextStatus: LiveKitConnectionStatus = "idle") => {
@@ -908,6 +1024,9 @@ export function useRoomSession(routeRoomId?: string) {
     ...state,
     close,
     create,
+    hostPause,
+    hostPlay,
+    hostSeek,
     inviteUrl,
     join,
     leave,

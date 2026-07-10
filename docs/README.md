@@ -48,6 +48,10 @@
 - [WT-305_GUEST_LIVEKIT_PLAYBACK.md](WT-305_GUEST_LIVEKIT_PLAYBACK.md) — просмотр remote video/audio tracks гостем.
 - [WT-306_PLAYBACK_STATE_SYNC.md](WT-306_PLAYBACK_STATE_SYNC.md) — синхронизация host playback state через LiveKit data channel.
 
+## P4: host UX
+
+- [WT-401_HOST_CONTROLS.md](WT-401_HOST_CONTROLS.md) — управление воспроизведением для host: play/pause/seek, rollback при ошибке.
+
 ## Как обновлять документы
 
 - Пишите пользовательский и проектный текст на русском.

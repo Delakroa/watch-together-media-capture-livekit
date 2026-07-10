@@ -31,8 +31,9 @@ P0 технически подтверждён.
 - WT-304 публикует выбранный локальный файл host-а в LiveKit и добавляет stop/cleanup публикации.
 - WT-305 добавляет guest playback remote video/audio tracks из LiveKit.
 - WT-306 добавляет синхронизацию host playback state через LiveKit data channel.
+- WT-401 добавляет управление воспроизведением для host: play/pause/seek, rollback при ошибке.
 
-P1 foundation и P2 room lifecycle завершены. Проект находится в P3 media integration. Chat и voice остаются вне текущего product UI.
+P1 foundation, P2 room lifecycle и P3 media integration завершены. Проект находится в P4 host UX. Chat и voice остаются вне текущего product UI.
 
 ## Как читать репозиторий
 
@@ -152,6 +153,7 @@ Media PoC остаётся референсной реализацией в [poc
 - [WT-304 публикация локального файла в LiveKit](docs/WT-304_LIVEKIT_FILE_PUBLISH.md)
 - [WT-305 просмотр LiveKit-потока гостем](docs/WT-305_GUEST_LIVEKIT_PLAYBACK.md)
 - [WT-306 синхронизация playback state](docs/WT-306_PLAYBACK_STATE_SYNC.md)
+- [WT-401 host controls](docs/WT-401_HOST_CONTROLS.md)
 - [Definition of Done](docs/DEFINITION_OF_DONE.md)
 
 ## Правила foundation

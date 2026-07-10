@@ -455,9 +455,7 @@ export function HomePage() {
                       aria-label="Перемотка"
                       onChange={(e) => setSeekBarValue(Number(e.target.value))}
                       onPointerUp={(e) => {
-                        roomSession.hostSeek(
-                          Number((e.target as HTMLInputElement).value),
-                        );
+                        roomSession.hostSeek(Number((e.target as HTMLInputElement).value));
                         setSeekBarValue(null);
                       }}
                     />

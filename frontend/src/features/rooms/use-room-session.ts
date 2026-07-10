@@ -363,8 +363,7 @@ export function useRoomSession(routeRoomId?: string) {
         hostPlaybackStatus: videoElement.ended ? "ended" : "paused",
       }));
 
-    const handleEnded = () =>
-      setState((current) => ({ ...current, hostPlaybackStatus: "ended" }));
+    const handleEnded = () => setState((current) => ({ ...current, hostPlaybackStatus: "ended" }));
 
     const handleTimeUpdate = () =>
       setState((current) => ({
@@ -375,9 +374,7 @@ export function useRoomSession(routeRoomId?: string) {
     const handleDurationChange = () =>
       setState((current) => ({
         ...current,
-        hostPlaybackDuration: Number.isFinite(videoElement.duration)
-          ? videoElement.duration
-          : null,
+        hostPlaybackDuration: Number.isFinite(videoElement.duration) ? videoElement.duration : null,
       }));
 
     videoElement.addEventListener("play", handlePlay);
@@ -516,7 +513,12 @@ export function useRoomSession(routeRoomId?: string) {
         filePublicationTrackCount: 0,
       }));
     }
-  }, [startHostPlaybackTracking, state.fileResult, state.liveKitStatus, stopCurrentFilePublication]);
+  }, [
+    startHostPlaybackTracking,
+    state.fileResult,
+    state.liveKitStatus,
+    stopCurrentFilePublication,
+  ]);
 
   const disconnectLiveKit = useCallback(
     (nextStatus: LiveKitConnectionStatus = "idle") => {

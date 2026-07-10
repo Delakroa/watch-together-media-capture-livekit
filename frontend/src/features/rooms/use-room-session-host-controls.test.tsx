@@ -78,22 +78,21 @@ vi.mock("./room-api", async (importOriginal) => {
 });
 
 vi.mock("./livekit-connection", () => ({
-  connectLiveKitRoom: vi.fn().mockImplementation(
-    async (
-      _token: unknown,
-      { onStatusChange }: { onStatusChange: (status: string) => void },
-    ) => {
-      onStatusChange("connected");
-      return {
-        disconnect: vi.fn(),
-        room: {
-          localParticipant: { publishData: vi.fn() },
-          on: vi.fn().mockReturnThis(),
-          off: vi.fn(),
-        },
-      };
-    },
-  ),
+  connectLiveKitRoom: vi
+    .fn()
+    .mockImplementation(
+      async (_token: unknown, { onStatusChange }: { onStatusChange: (status: string) => void }) => {
+        onStatusChange("connected");
+        return {
+          disconnect: vi.fn(),
+          room: {
+            localParticipant: { publishData: vi.fn() },
+            on: vi.fn().mockReturnThis(),
+            off: vi.fn(),
+          },
+        };
+      },
+    ),
 }));
 
 vi.mock("./file-diagnostics", async (importOriginal) => {
@@ -206,9 +205,7 @@ function HostControlsHarness() {
       </button>
       <button
         type="button"
-        onClick={() =>
-          void session.selectFile(new File([""], "movie.mp4", { type: "video/mp4" }))
-        }
+        onClick={() => void session.selectFile(new File([""], "movie.mp4", { type: "video/mp4" }))}
       >
         Выбрать
       </button>
@@ -245,21 +242,15 @@ async function setupLivePublication(user: ReturnType<typeof userEvent.setup>) {
   vi.spyOn(URL, "revokeObjectURL").mockReturnValue(undefined);
 
   await user.click(screen.getByRole("button", { name: "Создать" }));
-  await waitFor(() =>
-    expect(screen.getByTestId("pub-status")).toHaveTextContent("idle"),
-  );
+  await waitFor(() => expect(screen.getByTestId("pub-status")).toHaveTextContent("idle"));
 
   MockWebSocket.instances[0]?.onopen?.(new Event("open"));
 
   await user.click(screen.getByRole("button", { name: "Выбрать" }));
-  await waitFor(() =>
-    expect(screen.getByTestId("pub-status")).toHaveTextContent("idle"),
-  );
+  await waitFor(() => expect(screen.getByTestId("pub-status")).toHaveTextContent("idle"));
 
   await user.click(screen.getByRole("button", { name: "Опубликовать" }));
-  await waitFor(() =>
-    expect(screen.getByTestId("pub-status")).toHaveTextContent("live"),
-  );
+  await waitFor(() => expect(screen.getByTestId("pub-status")).toHaveTextContent("live"));
 }
 
 beforeEach(() => {
@@ -318,9 +309,7 @@ describe("useRoomSession host playback controls", () => {
     const user = userEvent.setup();
     await setupLivePublication(user);
 
-    mockVideoElement.play.mockRejectedValueOnce(
-      new Error("Браузер заблокировал воспроизведение."),
-    );
+    mockVideoElement.play.mockRejectedValueOnce(new Error("Браузер заблокировал воспроизведение."));
 
     await user.click(screen.getByRole("button", { name: "Play" }));
 

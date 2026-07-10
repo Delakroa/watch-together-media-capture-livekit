@@ -54,10 +54,7 @@ async function runChecks(file: File, objectUrl: string): Promise<FileDiagnostics
   const metadata = await loadMetadata(video, objectUrl);
 
   if (!metadata.hasVideo) {
-    throw new FileDiagnosticsFailure(
-      "NO_VIDEO_TRACK",
-      "Файл не содержит видеодорожки.",
-    );
+    throw new FileDiagnosticsFailure("NO_VIDEO_TRACK", "Файл не содержит видеодорожки.");
   }
 
   return {

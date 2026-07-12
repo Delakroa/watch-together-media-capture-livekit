@@ -54,6 +54,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler implements RoomEventPubl
             new ConcurrentHashMap<>();
     private final Map<ParticipantConnectionKey, ChatRateWindow> chatRateByParticipant =
             new ConcurrentHashMap<>();
+    private final RoomMetrics metrics;
 
     RoomWebSocketHandler(
             RoomRealtimeStore store,
@@ -61,13 +62,15 @@ class RoomWebSocketHandler extends TextWebSocketHandler implements RoomEventPubl
             ObjectMapper objectMapper,
             RoomWebSocketProperties properties,
             TaskScheduler taskScheduler,
-            Clock clock) {
+            Clock clock,
+            RoomMetrics metrics) {
         this.store = store;
         this.lifecycleStore = lifecycleStore;
         this.objectMapper = objectMapper;
         this.properties = properties;
         this.taskScheduler = taskScheduler;
         this.clock = clock;
+        this.metrics = metrics;
     }
 
     @Override
@@ -114,6 +117,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler implements RoomEventPubl
         var event = RoomServerEvent.snapshot(snapshot, Instant.now(clock));
         sendTo(session, objectMapper.writeValueAsString(event));
         scheduleExpiry(snapshot.roomId(), snapshot.expiresAt());
+        metrics.webSocketConnected();
         broadcastPresenceChange(roomId, presence, session);
         if (hostRecovered) {
             var reconnected = RoomServerEvent.hostReconnected(
@@ -124,6 +128,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler implements RoomEventPubl
                     room.updatedAt(),
                     Instant.now(clock));
             broadcast(roomId, objectMapper.writeValueAsString(reconnected), session);
+            metrics.hostReconnected();
         }
     }
 
@@ -233,6 +238,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler implements RoomEventPubl
                     "Слишком много сообщений",
                     "Подождите несколько секунд перед следующим сообщением.",
                     true);
+            metrics.chatRateLimited();
             return;
         }
 
@@ -267,6 +273,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler implements RoomEventPubl
                 payload.text(),
                 Instant.now(clock));
         broadcast(roomId, objectMapper.writeValueAsString(chatEvent), null);
+        metrics.chatMessage();
     }
 
     @Override
@@ -312,6 +319,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler implements RoomEventPubl
                 roomId, participantId, marked.room().roomVersion(), deadline, Instant.now(clock));
         broadcast(roomId, objectMapper.writeValueAsString(event), null);
         scheduleHostReconnect(roomId, deadline);
+        metrics.hostDisconnected();
     }
 
     private boolean validEnvelope(WebSocketSession session, ClientEvent event) {
@@ -532,6 +540,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler implements RoomEventPubl
                 sendTo(roomSession, payload);
             }
         }
+        metrics.participantJoined();
     }
 
     @Override
@@ -559,6 +568,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler implements RoomEventPubl
                 roomSession.close(CloseStatus.NORMAL);
             }
         }
+        metrics.roomClosed(reason);
     }
 
     @Override
@@ -585,6 +595,7 @@ class RoomWebSocketHandler extends TextWebSocketHandler implements RoomEventPubl
                 roomSession.close(CloseStatus.NORMAL);
             }
         }
+        metrics.participantLeft();
     }
 
     private void scheduleExpiry(String roomId, Instant expiresAt) {

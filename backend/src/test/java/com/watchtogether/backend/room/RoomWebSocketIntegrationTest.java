@@ -30,6 +30,8 @@ import com.watchtogether.backend.room.RoomLifecycleStore.HostPresenceResult;
 import com.watchtogether.backend.room.RoomRealtimeStore.AuthenticationResult;
 import com.watchtogether.backend.room.RoomRealtimeStore.PresenceResult;
 
+import io.micrometer.core.instrument.MeterRegistry;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,6 +76,9 @@ class RoomWebSocketIntegrationTest {
 
     @Autowired
     private RoomEventPublisher eventPublisher;
+
+    @Autowired
+    private MeterRegistry meterRegistry;
 
     @MockitoBean
     private RoomRealtimeStore store;
@@ -553,6 +558,26 @@ class RoomWebSocketIntegrationTest {
         connection.webSocket().sendText(heartbeatJson(GUEST_ID, SESSION, 2), true).join();
 
         assertThat(connection.listener().closeCode()).isEqualTo(1007);
+    }
+
+    @Test
+    void recordsMetricsForWebSocketConnectionsAndChat() throws Exception {
+        currentRoom.set(room(3, true));
+        Connection host = connect(ROOM_ID, SESSION, null);
+        host.listener().nextText();
+        Connection guest = connect(ROOM_ID, GUEST_SESSION, null);
+        guest.listener().nextText();
+
+        guest.webSocket().sendText(chatJson(GUEST_ID, UUID.randomUUID(), "метрики", 3), true).join();
+        objectMapper.readTree(guest.listener().nextText());
+
+        assertThat(meterRegistry.get("wt.ws.connections").counter().count())
+                .isGreaterThanOrEqualTo(2.0);
+        assertThat(meterRegistry.get("wt.chat.messages").counter().count())
+                .isGreaterThanOrEqualTo(1.0);
+
+        close(guest, "test complete");
+        close(host, "test complete");
     }
 
     private void assertHandshakeStatus(

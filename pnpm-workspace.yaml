@@ -1,7 +1,8 @@
 packages:
-  - 'poc/*'
-  - 'backend'
-  - 'frontend'
+  - "poc/*"
+  - "backend"
+  - "frontend"
+  - "e2e"
 
 allowBuilds:
   esbuild: true

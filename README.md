@@ -41,6 +41,7 @@ P0 технически подтверждён.
 - WT-502 усиливает frontend test suite вокруг player state, cleanup, errors/reconnect, permissions и API contracts.
 - WT-503 добавляет multi-user E2E (Playwright): host + 2 гостя, presence и chat через реальный стек; отдельный `test:e2e` вне `check:ci`.
 - WT-505 усиливает безопасность: аудит модели угроз, CSP и security-заголовки на gateway, secret-scanning (gitleaks) в CI.
+- WT-506 добавляет observability: Micrometer room-метрики (WS/lifecycle/host/chat) через actuator/prometheus, privacy-safe.
 
 P1 foundation, P2 room lifecycle, P3 media integration и P4 host UX завершены. Проект находится в P5 stabilization.
 
@@ -172,6 +173,7 @@ Media PoC остаётся референсной реализацией в [poc
 - [WT-502 frontend tests](docs/WT-502_FRONTEND_TESTS.md)
 - [WT-503 multi-user E2E](docs/WT-503_MULTI_USER_E2E.md)
 - [WT-505 security hardening](docs/WT-505_SECURITY_HARDENING.md)
+- [WT-506 observability](docs/WT-506_OBSERVABILITY.md)
 - [Definition of Done](docs/DEFINITION_OF_DONE.md)
 
 ## Правила foundation

@@ -33,7 +33,9 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        # metrics/prometheus are for internal scraping — keep them behind the security
+        # chain (not in SecurityConfig permitAll) and/or a separate management port.
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       probes:

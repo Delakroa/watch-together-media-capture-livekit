@@ -25,6 +25,7 @@ dependencies {
     // Security patch until the Spring Boot BOM adopts Logback 1.5.35 or newer.
     implementation("ch.qos.logback:logback-classic:1.5.35")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("io.micrometer:micrometer-registry-prometheus")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")

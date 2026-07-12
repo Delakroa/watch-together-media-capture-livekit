@@ -75,10 +75,11 @@
 
 ## P7: beta iteration
 
+- [WT-603_BETA_EVIDENCE_RUN.md](WT-603_BETA_EVIDENCE_RUN.md) — beta evidence run: preflight, Chrome/Edge × host+1/host+3, TURN/UDP matrix, evidence report template и blocker triage.
 - [WT-604_CLIENT_TELEMETRY.md](WT-604_CLIENT_TELEMETRY.md) — client telemetry: privacy-safe endpoint и frontend-события (first frame, publish/playback error, quality) для агрегированной Successful Watch Session Rate поверх WT-506 метрик.
 - [WT-606_BETA_SECURITY_HARDENING.md](WT-606_BETA_SECURITY_HARDENING.md) — beta security: Redis-backed rate limits (create/join/token/feedback/telemetry), env-управляемый CSP connect-src, HSTS, actuator за Spring Security.
 
-Остальной пакет P7 запланирован: WT-603 (beta evidence run), WT-605 (feedback operations), WT-607 (media QoS/cost benchmark).
+Остальной пакет P7 запланирован: WT-605 (feedback operations), WT-607 (media QoS/cost benchmark).
 
 ## Как обновлять документы
 

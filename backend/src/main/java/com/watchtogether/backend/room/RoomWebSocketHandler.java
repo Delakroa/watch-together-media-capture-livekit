@@ -272,8 +272,11 @@ class RoomWebSocketHandler extends TextWebSocketHandler implements RoomEventPubl
                 UUID.randomUUID(),
                 payload.text(),
                 Instant.now(clock));
-        broadcast(roomId, objectMapper.writeValueAsString(chatEvent), null);
+        // Record the accepted message before a client can observe the broadcast. Otherwise an
+        // integration test (and an actuator scrape) may see the delivered event before the
+        // counter increment on this WebSocket thread.
         metrics.chatMessage();
+        broadcast(roomId, objectMapper.writeValueAsString(chatEvent), null);
     }
 
     @Override

@@ -61,8 +61,8 @@ services:
       REDIS_HOST: "redis:6379"
       REDIS_PASSWORD: "${REDIS_PASSWORD:-watch_together_redis_dev_only}"
     ports:
-      - "127.0.0.1:${LIVEKIT_HTTP_PORT:-7880}:7880"
-      - "127.0.0.1:${LIVEKIT_TCP_PORT:-7881}:7881"
+      - "${LIVEKIT_BIND_ADDRESS:-127.0.0.1}:${LIVEKIT_HTTP_PORT:-7880}:7880"
+      - "${LIVEKIT_BIND_ADDRESS:-127.0.0.1}:${LIVEKIT_TCP_PORT:-7881}:7881"
       - "${LIVEKIT_UDP_PORT_START:-50000}-${LIVEKIT_UDP_PORT_END:-50100}:50000-50100/udp"
     volumes:
       - ./livekit/livekit.yaml:/etc/livekit.yaml:ro
@@ -133,7 +133,7 @@ services:
       # Local Compose is HTTP; the staging overlay terminates TLS upstream.
       WT_FORWARDED_PROTO: http
     ports:
-      - "127.0.0.1:${APP_PORT:-8088}:80"
+      - "${GATEWAY_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-8088}:80"
     depends_on:
       backend:
         condition: service_healthy

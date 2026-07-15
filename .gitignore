@@ -18,6 +18,7 @@ reports/
 .env
 .env.*
 !.env.example
+infra/lan.env
 
 # Local IDE settings
 .vscode/settings.json

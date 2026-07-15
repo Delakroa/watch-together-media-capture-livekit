@@ -10,6 +10,7 @@ import QRCode from "qrcode";
 import {
   Activity,
   AlertTriangle,
+  Check,
   CircleCheck,
   Clapperboard,
   Copy,
@@ -84,6 +85,34 @@ function formatCheckedAt(value?: string) {
     minute: "2-digit",
     second: "2-digit",
   }).format(new Date(value));
+}
+
+async function copyText(value: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch {
+      // Clipboard API is unavailable in some private HTTP LAN contexts. Try the legacy
+      // browser mechanism before showing an error to the person in the room.
+    }
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = value;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  textArea.style.pointerEvents = "none";
+  document.body.append(textArea);
+  textArea.select();
+
+  const copied = document.execCommand("copy");
+  textArea.remove();
+
+  if (!copied) {
+    throw new Error("Clipboard write failed");
+  }
 }
 
 type FullscreenTarget = HTMLElement & {
@@ -429,7 +458,7 @@ export function HomePage() {
     }
 
     try {
-      await navigator.clipboard.writeText(publicInviteUrl);
+      await copyText(publicInviteUrl);
       setInviteCopied(true);
       setInviteShareStatus("copied");
       window.setTimeout(() => setInviteCopied(false), 1800);
@@ -472,9 +501,13 @@ export function HomePage() {
       return;
     }
 
-    await navigator.clipboard.writeText(room.roomId);
-    setRoomIdCopied(true);
-    window.setTimeout(() => setRoomIdCopied(false), 1800);
+    try {
+      await copyText(room.roomId);
+      setRoomIdCopied(true);
+      window.setTimeout(() => setRoomIdCopied(false), 1800);
+    } catch {
+      // The field remains visible, so a person can still select and copy the ID manually.
+    }
   }
 
   if (isMobileInviteHandoff && mobileInviteUrl) {
@@ -1185,35 +1218,51 @@ export function HomePage() {
                       <span>ID комнаты</span>
                       <code>{room.roomId}</code>
                       <button
-                        className="icon-button"
+                        className={`icon-button room-copy-field__copy${roomIdCopied ? " is-copied" : ""}`}
                         type="button"
                         onClick={() => void handleCopyRoomId()}
-                        aria-label="Скопировать ID комнаты"
+                        aria-label={roomIdCopied ? "ID комнаты скопирован" : "Скопировать ID комнаты"}
                         title={roomIdCopied ? "Скопировано" : "Скопировать ID комнаты"}
                       >
-                        <Copy size={17} aria-hidden="true" />
+                        {roomIdCopied ? (
+                          <Check size={17} aria-hidden="true" />
+                        ) : (
+                          <Copy size={17} aria-hidden="true" />
+                        )}
                       </button>
                     </div>
 
                     {roomSession.inviteUrl && (
                       <div className="room-copy-field">
-                        <span>
+                        <span aria-label="Ссылка приглашения">
                           <LinkIcon size={15} aria-hidden="true" />
-                          Invite
+                          Ссылка
                         </span>
                         <a href={roomSession.inviteUrl}>{roomSession.inviteUrl}</a>
                         <button
-                          className="icon-button"
+                          className={`icon-button room-copy-field__copy${inviteCopied ? " is-copied" : ""}`}
                           type="button"
                           onClick={() => void handleCopyInvite()}
-                          aria-label="Скопировать приглашение"
+                          aria-label={
+                            inviteCopied
+                              ? "Ссылка приглашения скопирована"
+                              : "Скопировать приглашение"
+                          }
                           title={inviteCopied ? "Скопировано" : "Скопировать приглашение"}
                         >
-                          <Copy size={17} aria-hidden="true" />
+                          {inviteCopied ? (
+                            <Check size={17} aria-hidden="true" />
+                          ) : (
+                            <Copy size={17} aria-hidden="true" />
+                          )}
                         </button>
                       </div>
                     )}
                   </div>
+                  <p className="visually-hidden" role="status">
+                    {roomIdCopied && "ID комнаты скопирован."}
+                    {inviteCopied && "Ссылка приглашения скопирована."}
+                  </p>
 
                   <div className="room-card__commands">
                     {isHost ? (
@@ -1515,9 +1564,19 @@ function InviteShareSheet({
             <p>Отсканируйте код или отправьте ссылку. Просмотр поддерживается на компьютере.</p>
             <code>{inviteUrl}</code>
             <div className="invite-share-sheet__actions">
-              <button className="button button--primary" onClick={onCopy} type="button">
-                <Copy size={17} aria-hidden="true" />
-                Скопировать ссылку
+              <button
+                className={`button button--primary invite-share-sheet__copy-button${
+                  shareStatus === "copied" ? " is-copied" : ""
+                }`}
+                onClick={onCopy}
+                type="button"
+              >
+                {shareStatus === "copied" ? (
+                  <Check size={17} aria-hidden="true" />
+                ) : (
+                  <Copy size={17} aria-hidden="true" />
+                )}
+                {shareStatus === "copied" ? "Скопировано" : "Скопировать ссылку"}
               </button>
               <button className="button" onClick={onNativeShare} type="button">
                 <Share2 size={17} aria-hidden="true" />
@@ -1564,8 +1623,9 @@ function MobileInviteHandoff({ inviteUrl }: { inviteUrl: string }) {
 
   async function copyInvite() {
     try {
-      await navigator.clipboard.writeText(inviteUrl);
+      await copyText(inviteUrl);
       setStatus("copied");
+      window.setTimeout(() => setStatus("idle"), 1800);
     } catch {
       setStatus("error");
     }
@@ -1602,12 +1662,18 @@ function MobileInviteHandoff({ inviteUrl }: { inviteUrl: string }) {
         <code>{inviteUrl}</code>
         <div className="mobile-invite-handoff__actions">
           <button
-            className="button button--primary"
+            className={`button button--primary mobile-invite-handoff__copy-button${
+              status === "copied" ? " is-copied" : ""
+            }`}
             onClick={() => void copyInvite()}
             type="button"
           >
-            <Copy size={17} aria-hidden="true" />
-            Скопировать ссылку
+            {status === "copied" ? (
+              <Check size={17} aria-hidden="true" />
+            ) : (
+              <Copy size={17} aria-hidden="true" />
+            )}
+            {status === "copied" ? "Скопировано" : "Скопировать ссылку"}
           </button>
           <button className="button" onClick={() => void shareInvite()} type="button">
             <Share2 size={17} aria-hidden="true" />

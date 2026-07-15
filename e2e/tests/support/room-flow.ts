@@ -11,6 +11,7 @@ export async function createRoom(
   await page.getByRole("button", { name: "Создать" }).click();
 
   await expectRoomWorkspace(page);
+  await expectLiveKitConnected(page);
   await page.getByText("Комната и события", { exact: true }).click();
   await expect(page.locator(".room-copy-field code").first()).toBeVisible();
   const roomId = (
@@ -30,6 +31,7 @@ export async function joinRoom(
   await submitJoinRoom(page, roomId, guestName);
 
   await expectRoomWorkspace(page);
+  await expectLiveKitConnected(page);
 }
 
 export async function submitJoinRoom(
@@ -65,6 +67,14 @@ async function expectRoomWorkspace(page: Page): Promise<void> {
     page.getByRole("heading", { name: ROOM_WORKSPACE_HEADING }),
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Участники" })).toBeVisible();
+}
+
+async function expectLiveKitConnected(page: Page): Promise<void> {
+  await expect(
+    page.getByText("LiveKit: подключён", { exact: true }),
+  ).toBeVisible({
+    timeout: 30_000,
+  });
 }
 
 export async function closeContexts(

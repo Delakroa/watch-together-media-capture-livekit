@@ -617,6 +617,33 @@ a {
   border-radius: 0 7px 7px 0;
 }
 
+.room-copy-field__copy:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.room-copy-field__copy.is-copied,
+.invite-share-sheet__copy-button.is-copied,
+.mobile-invite-handoff__copy-button.is-copied {
+  border-color: #23b77a;
+  color: #e7fff3;
+  background: #167654;
+  animation: copy-confirm 360ms cubic-bezier(0.2, 0.9, 0.25, 1.35);
+}
+
+@keyframes copy-confirm {
+  0% {
+    transform: scale(0.92);
+  }
+
+  55% {
+    transform: scale(1.07);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
 .room-card__commands {
   display: flex;
   gap: 10px;
@@ -2093,6 +2120,39 @@ a {
   color: #f6f1ff;
 }
 
+.room-workspace--active .room-copy-field {
+  border-color: #3a3150;
+  color: #bdb2cc;
+  background: #201a2d;
+}
+
+.room-workspace--active .room-copy-field > span {
+  color: #bdb2cc;
+}
+
+.room-workspace--active .room-copy-field .icon-button {
+  border-color: #3a3150;
+  color: #e5dcf2;
+  background: #201a2d;
+}
+
+.room-workspace--active .room-copy-field .icon-button:hover:not(:disabled) {
+  border-color: #7654b8;
+  background: #2a213b;
+}
+
+.room-workspace--active .room-copy-field .room-copy-field__copy.is-copied {
+  border-color: #23b77a;
+  color: #e7fff3;
+  background: #167654;
+}
+
+.room-workspace--active .invite-share-sheet__copy-button.is-copied {
+  border-color: #23b77a;
+  color: #e7fff3;
+  background: #167654;
+}
+
 .room-workspace--active .room-pill,
 .room-workspace--active .room-count,
 .room-workspace--active .room-metrics dt,
@@ -2891,5 +2951,11 @@ a {
   *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .room-copy-field__copy.is-copied,
+  .invite-share-sheet__copy-button.is-copied,
+  .mobile-invite-handoff__copy-button.is-copied {
+    animation: none;
   }
 }

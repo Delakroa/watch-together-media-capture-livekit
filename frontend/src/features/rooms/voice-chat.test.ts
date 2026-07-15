@@ -96,6 +96,19 @@ describe("voice chat", () => {
     } satisfies Partial<VoiceChatFailure>);
   });
 
+  it("честно сообщает об ограничении микрофона в небезопасном LAN-контексте", async () => {
+    vi.stubGlobal("isSecureContext", false);
+    createLocalAudioTrackMock.mockClear();
+    const room = createRoom();
+
+    await expect(publishVoiceToLiveKit(room as never)).rejects.toMatchObject({
+      code: "MIC_REQUIRES_SECURE_CONTEXT",
+      message: expect.stringContaining("HTTPS или localhost"),
+    } satisfies Partial<VoiceChatFailure>);
+    expect(createLocalAudioTrackMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it("подписывает только remote microphone tracks для голосового чата", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     const room = createRoom();

@@ -84,6 +84,41 @@ PostgreSQL и Redis используют named volumes:
 
 Обычный `pnpm infra:down` сохраняет данные. `pnpm infra:reset` удаляет их без возможности восстановления.
 
+## Проверка между домашними компьютерами (LAN)
+
+Обычный запуск намеренно доступен только на MacBook. Чтобы проверить комнату с
+Windows-компьютера в **той же приватной домашней сети**, не меняйте
+`compose.yaml` и не открывайте router port forwarding:
+
+```bash
+cp infra/lan.env.example infra/lan.env
+```
+
+В `infra/lan.env` заменить `192.168.1.42` на текущий private IPv4 MacBook.
+Затем перезапустить стек в opt-in LAN-режиме:
+
+```bash
+pnpm infra:down
+pnpm infra:lan:up
+```
+
+Windows открывает `http://<MacBook-private-IP>:8088`. Gateway и LiveKit
+сигналинг будут доступны в LAN; backend, Redis и PostgreSQL останутся на
+loopback. `lan.env` задаёт тот же LAN URL для backend token response и
+frontend build: это необходимо, иначе Windows попытается подключиться к
+собственному `127.0.0.1`. После проверки вернуть обычный закрытый режим:
+
+```bash
+pnpm infra:lan:down
+pnpm infra:up
+```
+
+Этот режим не является staging или production: нет TLS, public TURN и
+secure-cookie semantics. Браузеры по правилам безопасности не дают доступ к
+микрофону на `http://<private-IP>`: в LAN проверяйте room/file/chat, а голос —
+только через `https` staging или `localhost`. Не используйте этот режим с
+публичным IP, пробросом портов на router, VPN exit node или облачной VM.
+
 ## Границы
 
 Эта среда нужна для воспроизводимой локальной проверки. Бэкенд использует Redis для room state и idempotency; PostgreSQL пока не подключён к product state.

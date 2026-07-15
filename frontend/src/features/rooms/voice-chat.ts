@@ -33,6 +33,7 @@ export class VoiceChatFailure extends Error {
     public readonly code:
       | "LIVEKIT_NOT_CONNECTED"
       | "MIC_PERMISSION_DENIED"
+      | "MIC_REQUIRES_SECURE_CONTEXT"
       | "MIC_UNAVAILABLE"
       | "PUBLISH_FAILED"
       | "MUTE_FAILED",
@@ -50,6 +51,14 @@ const idleRemoteVoiceState: RemoteVoiceState = {
 };
 
 export async function publishVoiceToLiveKit(room: LiveKitRoom): Promise<VoicePublication> {
+  if (globalThis.isSecureContext === false) {
+    throw new VoiceChatFailure(
+      "MIC_REQUIRES_SECURE_CONTEXT",
+      "Микрофон доступен только через HTTPS или localhost. В домашнем LAN-режиме " +
+        "проверьте файл и чат; голос требует TLS-staging.",
+    );
+  }
+
   const { createLocalAudioTrack, Track } = await import("livekit-client");
   let track: LocalAudioTrack | null = null;
 

@@ -33,6 +33,16 @@ export function createRoomInviteUrl(roomId: string, origin = window.location.ori
   return toPublicRoomInviteUrl(new URL(`/rooms/${roomId}`, origin).toString());
 }
 
+export function isLoopbackRoomInviteUrl(inviteUrl: string | null | undefined) {
+  const publicInviteUrl = toPublicRoomInviteUrl(inviteUrl);
+  if (!publicInviteUrl) {
+    return false;
+  }
+
+  const hostname = new URL(publicInviteUrl).hostname.toLowerCase();
+  return hostname === "localhost" || hostname === "::1" || hostname.startsWith("127.");
+}
+
 export function toTelegramShareUrl(inviteUrl: string | null | undefined) {
   const publicInviteUrl = toPublicRoomInviteUrl(inviteUrl);
   if (!publicInviteUrl) {

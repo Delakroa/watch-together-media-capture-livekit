@@ -515,7 +515,8 @@ a {
 .room-pill--quality-reconnecting,
 .room-pill--quality-warning,
 .room-pill--voice-muted,
-.room-pill--voice-requesting {
+.room-pill--voice-requesting,
+.room-pill--voice-requires-https {
   color: #b15d10;
 }
 
@@ -730,6 +731,21 @@ a {
 
 .event-list span {
   min-width: 0;
+}
+
+.room-network-hint,
+.voice-secure-context-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  color: #775716;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.room-network-hint code {
+  font-size: inherit;
 }
 
 .room-card__empty {
@@ -2166,6 +2182,19 @@ a {
 .room-workspace--active .file-picker__hint,
 .room-workspace--active .file-picker__meta {
   color: #aaa1bc;
+}
+
+.room-workspace--active .event-list li {
+  color: #e5dcf2;
+}
+
+.room-workspace--active .room-network-hint,
+.room-workspace--active .voice-secure-context-hint {
+  color: #f3cf7d;
+}
+
+.room-workspace--active .room-network-hint code {
+  color: #f6f1ff;
 }
 
 .room-workspace--active .button {

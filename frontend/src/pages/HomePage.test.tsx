@@ -321,6 +321,7 @@ describe("HomePage", () => {
 
   it("создаёт комнату и применяет participant.joined из WebSocket", async () => {
     vi.stubGlobal("WebSocket", MockWebSocket);
+    vi.stubGlobal("isSecureContext", false);
     const user = userEvent.setup();
 
     vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
@@ -398,6 +399,12 @@ describe("HomePage", () => {
     expect(screen.getByText("Dima")).toBeInTheDocument();
     expect(screen.getByText(roomId)).toBeInTheDocument();
     expect(screen.getByText(`http://localhost:3000/rooms/${roomId}`)).toBeInTheDocument();
+    expect(screen.getByText("Нужен HTTPS")).toBeInTheDocument();
+    expect(screen.getByText(/Голос появится после запуска через HTTPS/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Включить микрофон" })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Это приглашение работает только на этом компьютере/),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("Invite-ссылка или ID комнаты")).not.toBeInTheDocument();
     expect(MockWebSocket.instances[0]?.url).toBe(
       `ws://localhost:3000/api/v1/rooms/${roomId}/events`,

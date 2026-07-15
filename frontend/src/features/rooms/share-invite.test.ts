@@ -1,6 +1,7 @@
 import {
   INVITE_SHARE_TEXT,
   createRoomInviteUrl,
+  isLoopbackRoomInviteUrl,
   toPublicRoomInviteUrl,
   toTelegramShareUrl,
 } from "./share-invite";
@@ -40,5 +41,11 @@ describe("share invite URLs", () => {
     expect(createRoomInviteUrl(roomId, "https://review.example")).toBe(
       `https://review.example/rooms/${roomId}`,
     );
+  });
+
+  it("отмечает localhost и loopback IPv4 как ссылки только для текущего компьютера", () => {
+    expect(isLoopbackRoomInviteUrl(`http://localhost:8088/rooms/${roomId}`)).toBe(true);
+    expect(isLoopbackRoomInviteUrl(`http://127.0.0.1:8088/rooms/${roomId}`)).toBe(true);
+    expect(isLoopbackRoomInviteUrl(`http://192.168.1.55:8088/rooms/${roomId}`)).toBe(false);
   });
 });

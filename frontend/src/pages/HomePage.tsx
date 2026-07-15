@@ -71,6 +71,7 @@ import {
   INVITE_SHARE_TEXT,
   INVITE_SHARE_TITLE,
   createRoomInviteUrl,
+  isLoopbackRoomInviteUrl,
   toPublicRoomInviteUrl,
   toTelegramShareUrl,
 } from "../features/rooms/share-invite";
@@ -208,6 +209,7 @@ export function HomePage() {
   const room = roomSession.room;
   const participant = roomSession.participant;
   const publicInviteUrl = toPublicRoomInviteUrl(roomSession.inviteUrl);
+  const isLoopbackInvite = isLoopbackRoomInviteUrl(publicInviteUrl);
   const telegramShareUrl = toTelegramShareUrl(publicInviteUrl);
   const mobileInviteUrl = routeRoomId ? createRoomInviteUrl(routeRoomId) : null;
   const canUseNativeShare = typeof (navigator as NavigatorWithWebShare).share === "function";
@@ -223,6 +225,10 @@ export function HomePage() {
     roomSession.filePublicationStatus === "publishing" ||
     roomSession.filePublicationStatus === "live";
   const canUseVoice = roomSession.liveKitStatus === "connected" && !roomClosed;
+  const voiceRequiresSecureContext = globalThis.isSecureContext === false;
+  const visibleVoiceError = voiceRequiresSecureContext
+    ? roomSession.voiceRemoteError
+    : (roomSession.voiceError ?? roomSession.voiceRemoteError);
   const isVoiceActive =
     roomSession.voiceStatus === "live" ||
     roomSession.voiceStatus === "muted" ||
@@ -1014,62 +1020,75 @@ export function HomePage() {
               <section className="room-card room-card--voice" aria-labelledby="voice-chat-title">
                 <div className="room-card__heading">
                   <h3 id="voice-chat-title">Голос</h3>
-                  <span className={`room-pill room-pill--voice-${roomSession.voiceStatus}`}>
+                  <span
+                    className={`room-pill room-pill--voice-${
+                      voiceRequiresSecureContext ? "requires-https" : roomSession.voiceStatus
+                    }`}
+                  >
                     {roomSession.voiceStatus === "live" ? (
                       <Mic size={15} aria-hidden="true" />
                     ) : (
                       <MicOff size={15} aria-hidden="true" />
                     )}
-                    {formatVoiceStatus(roomSession.voiceStatus)}
+                    {voiceRequiresSecureContext
+                      ? "Нужен HTTPS"
+                      : formatVoiceStatus(roomSession.voiceStatus)}
                   </span>
                 </div>
 
-                <div className="voice-controls">
-                  {roomSession.voiceStatus === "live" ? (
+                {voiceRequiresSecureContext ? (
+                  <p className="voice-secure-context-hint" role="status">
+                    Голос появится после запуска через HTTPS. В домашнем LAN-режиме доступны
+                    просмотр, чат и приглашения.
+                  </p>
+                ) : (
+                  <div className="voice-controls">
+                    {roomSession.voiceStatus === "live" ? (
+                      <button
+                        className="button"
+                        type="button"
+                        disabled={!canUseVoice}
+                        onClick={() => void roomSession.muteVoiceChat()}
+                      >
+                        <MicOff size={17} aria-hidden="true" />
+                        Выключить звук
+                      </button>
+                    ) : roomSession.voiceStatus === "muted" ? (
+                      <button
+                        className="button button--primary"
+                        type="button"
+                        disabled={!canUseVoice}
+                        onClick={() => void roomSession.unmuteVoiceChat()}
+                      >
+                        <Mic size={17} aria-hidden="true" />
+                        Включить звук
+                      </button>
+                    ) : (
+                      <button
+                        className="button button--primary"
+                        type="button"
+                        disabled={!canUseVoice || roomSession.voiceStatus === "requesting"}
+                        onClick={() => void roomSession.startVoiceChat()}
+                      >
+                        <Mic size={17} aria-hidden="true" />
+                        {roomSession.voiceStatus === "requesting"
+                          ? "Запрашиваем…"
+                          : "Включить микрофон"}
+                      </button>
+                    )}
+
                     <button
                       className="button"
                       type="button"
-                      disabled={!canUseVoice}
-                      onClick={() => void roomSession.muteVoiceChat()}
+                      aria-label="Остановить голос"
+                      disabled={!isVoiceActive}
+                      onClick={() => roomSession.stopVoiceChat()}
                     >
-                      <MicOff size={17} aria-hidden="true" />
-                      Выключить звук
+                      <Square size={16} aria-hidden="true" />
+                      Остановить
                     </button>
-                  ) : roomSession.voiceStatus === "muted" ? (
-                    <button
-                      className="button button--primary"
-                      type="button"
-                      disabled={!canUseVoice}
-                      onClick={() => void roomSession.unmuteVoiceChat()}
-                    >
-                      <Mic size={17} aria-hidden="true" />
-                      Включить звук
-                    </button>
-                  ) : (
-                    <button
-                      className="button button--primary"
-                      type="button"
-                      disabled={!canUseVoice || roomSession.voiceStatus === "requesting"}
-                      onClick={() => void roomSession.startVoiceChat()}
-                    >
-                      <Mic size={17} aria-hidden="true" />
-                      {roomSession.voiceStatus === "requesting"
-                        ? "Запрашиваем…"
-                        : "Включить микрофон"}
-                    </button>
-                  )}
-
-                  <button
-                    className="button"
-                    type="button"
-                    aria-label="Остановить голос"
-                    disabled={!isVoiceActive}
-                    onClick={() => roomSession.stopVoiceChat()}
-                  >
-                    <Square size={16} aria-hidden="true" />
-                    Остановить
-                  </button>
-                </div>
+                  </div>
+                )}
 
                 <div className="voice-meta">
                   <span>{formatVoiceRemoteCount(roomSession.voiceRemoteParticipantCount)}</span>
@@ -1078,10 +1097,10 @@ export function HomePage() {
                   ))}
                 </div>
 
-                {(roomSession.voiceError || roomSession.voiceRemoteError) && (
+                {visibleVoiceError && (
                   <div className="inline-error" role="alert">
-                    <p>{roomSession.voiceError ?? roomSession.voiceRemoteError}</p>
-                    {roomSession.voiceError && (
+                    <p>{visibleVoiceError}</p>
+                    {!voiceRequiresSecureContext && roomSession.voiceError && (
                       <button
                         className="button"
                         type="button"
@@ -1234,6 +1253,13 @@ export function HomePage() {
                       </div>
                     )}
                   </div>
+                  {isLoopbackInvite && (
+                    <p className="room-network-hint" role="status">
+                      <Wifi size={16} aria-hidden="true" /> Это приглашение работает только на этом
+                      компьютере. Для второго устройства откройте сервис у host по
+                      <code>http://&lt;IPv4-host&gt;:8088</code> и создайте новую комнату.
+                    </p>
+                  )}
                   <p className="visually-hidden" role="status">
                     {roomIdCopied && "ID комнаты скопирован."}
                     {inviteCopied && "Ссылка приглашения скопирована."}

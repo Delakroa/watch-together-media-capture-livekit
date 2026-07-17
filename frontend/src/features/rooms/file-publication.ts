@@ -10,6 +10,13 @@ export type FilePublication = {
   videoTrack: MediaStreamTrack;
 };
 
+export type FilePublicationOptions = {
+  /** Position to restore after a controlled stream restart. */
+  startAtSeconds?: number;
+  /** A recovery must not unexpectedly resume a film that the host paused. */
+  startPaused?: boolean;
+};
+
 export class FilePublicationFailure extends Error {
   constructor(
     public readonly code:
@@ -28,12 +35,14 @@ export class FilePublicationFailure extends Error {
 export async function publishFileToLiveKit(
   room: LiveKitRoom,
   file: FileDiagnosticsResult,
+  options: FilePublicationOptions = {},
 ): Promise<FilePublication> {
   const videoElement = createSourceVideo();
   let stream: MediaStream | null = null;
 
   try {
     await waitForMetadata(videoElement, file.objectUrl);
+    await restoreSourcePosition(videoElement, options.startAtSeconds);
     stream = captureMediaElementStream(videoElement);
     const videoTrack = stream.getVideoTracks()[0];
 
@@ -48,6 +57,9 @@ export async function publishFileToLiveKit(
     const tracks = audioTrack ? [videoTrack, audioTrack] : [videoTrack];
 
     await playSourceVideo(videoElement);
+    if (options.startPaused) {
+      videoElement.pause();
+    }
     await publishTracks(room, videoTrack, audioTrack);
 
     return {
@@ -61,6 +73,31 @@ export async function publishFileToLiveKit(
     cleanupPartialPublication(room, videoElement, stream);
     throw normalizePublicationError(error);
   }
+}
+
+function restoreSourcePosition(video: HTMLVideoElement, startAtSeconds: number | undefined) {
+  if (startAtSeconds === undefined || !Number.isFinite(startAtSeconds) || startAtSeconds <= 0) {
+    return Promise.resolve();
+  }
+
+  const duration = Number.isFinite(video.duration) ? video.duration : null;
+  const target =
+    duration === null
+      ? Math.max(0, startAtSeconds)
+      : Math.min(Math.max(0, startAtSeconds), duration);
+
+  return new Promise<void>((resolve) => {
+    const timeoutId = window.setTimeout(cleanup, 1_500);
+
+    function cleanup() {
+      window.clearTimeout(timeoutId);
+      video.removeEventListener("seeked", cleanup);
+      resolve();
+    }
+
+    video.addEventListener("seeked", cleanup, { once: true });
+    video.currentTime = target;
+  });
 }
 
 export function stopFilePublication(room: LiveKitRoom | null, publication: FilePublication): void {

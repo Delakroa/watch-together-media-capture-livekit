@@ -259,6 +259,9 @@ function HostControlsHarness() {
       <button type="button" onClick={() => session.hostSeek(-5)}>
         Seek negative
       </button>
+      <button type="button" onClick={() => void session.restartFilePublication()}>
+        Восстановить
+      </button>
 
       <span data-testid="pub-status">{session.filePublicationStatus}</span>
       <span data-testid="pub-error">{session.filePublicationError ?? ""}</span>
@@ -396,6 +399,9 @@ describe("useRoomSession host playback controls", () => {
     const publishFileToLiveKitMock = vi.mocked(publishFileToLiveKit);
     expect(publishFileToLiveKitMock).toHaveBeenCalledTimes(1);
 
+    mockVideoElement.currentTime = 45.5;
+    mockVideoElement.paused = false;
+
     act(() => {
       liveKitHandlers[0]?.onStatusChange("disconnected");
     });
@@ -406,6 +412,29 @@ describe("useRoomSession host playback controls", () => {
     });
 
     await waitFor(() => expect(publishFileToLiveKitMock).toHaveBeenCalledTimes(2));
+    expect(publishFileToLiveKitMock).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      { startAtSeconds: 45.5, startPaused: false },
+    );
+    expect(screen.getByTestId("pub-status")).toHaveTextContent("live");
+  });
+
+  it("перезапускает поток host-а с текущей позиции и состоянием паузы", async () => {
+    const user = userEvent.setup();
+    await setupLivePublication(user);
+
+    mockVideoElement.currentTime = 87;
+    mockVideoElement.paused = true;
+
+    await user.click(screen.getByRole("button", { name: "Восстановить" }));
+
+    await waitFor(() => expect(vi.mocked(publishFileToLiveKit)).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(publishFileToLiveKit)).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      { startAtSeconds: 87, startPaused: true },
+    );
     expect(screen.getByTestId("pub-status")).toHaveTextContent("live");
   });
 

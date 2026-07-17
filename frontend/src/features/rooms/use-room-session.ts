@@ -83,11 +83,23 @@ const ROOM_RECONNECT_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 15_000] as const;
 // shutdown (room.closed, participant.left) — those must not trigger a reconnect.
 const NORMAL_WS_CLOSE_CODE = 1000;
 
+function createHostPlaybackCheckpoint(videoElement: HTMLVideoElement): HostPlaybackCheckpoint {
+  const duration = Number.isFinite(videoElement.duration) ? videoElement.duration : null;
+  const currentTime = Number.isFinite(videoElement.currentTime) ? videoElement.currentTime : 0;
+  const startAtSeconds =
+    duration === null ? Math.max(0, currentTime) : Math.min(Math.max(0, currentTime), duration);
+
+  return {
+    startAtSeconds,
+    startPaused: videoElement.paused || videoElement.ended,
+  };
+}
+
 export type RoomConnectionStatus =
   "idle" | "connecting" | "open" | "reconnecting" | "closed" | "error";
 export type RoomActionStatus = "create" | "join" | "restore" | "leave" | "close" | null;
 export type FileStatus = "idle" | "checking" | "ready" | "error";
-export type FilePublicationStatus = "idle" | "publishing" | "live" | "error";
+export type FilePublicationStatus = "idle" | "publishing" | "restarting" | "live" | "error";
 export type HostPlaybackStatus = "idle" | "playing" | "paused" | "ended";
 export type RoomUserErrorArea = "room" | "websocket" | "livekit";
 export type RoomUserErrorAction = "retry-room-action" | "retry-websocket" | "retry-livekit";
@@ -140,6 +152,16 @@ type LastRoomAction =
   | { type: "restore"; roomId: string }
   | { type: "leave" }
   | { type: "close" };
+
+type HostPlaybackCheckpoint = {
+  startAtSeconds: number;
+  startPaused: boolean;
+};
+
+type PublishFileOptions = {
+  checkpoint?: HostPlaybackCheckpoint;
+  status?: Extract<FilePublicationStatus, "publishing" | "restarting">;
+};
 
 export type RoomSessionState = {
   chatError: string | null;
@@ -251,6 +273,7 @@ export function useRoomSession(routeRoomId?: string) {
   const hostSeekControllerRef = useRef<HostSeekController | null>(null);
   const hostPreviewElementRef = useRef<HTMLVideoElement | null>(null);
   const hostPublicationRecoveryRequestedRef = useRef(false);
+  const hostPlaybackRecoveryCheckpointRef = useRef<HostPlaybackCheckpoint | null>(null);
   const filePublicationRef = useRef<FilePublication | null>(null);
   const filePublicationRequestIdRef = useRef(0);
   const heartbeatTimerRef = useRef<number | null>(null);
@@ -486,6 +509,7 @@ export function useRoomSession(routeRoomId?: string) {
 
   const stopFilePublication = useCallback(() => {
     hostPublicationRecoveryRequestedRef.current = false;
+    hostPlaybackRecoveryCheckpointRef.current = null;
     filePublicationRequestIdRef.current += 1;
     stopCurrentFilePublication();
     setState((current) => ({
@@ -498,6 +522,7 @@ export function useRoomSession(routeRoomId?: string) {
 
   const clearFileState = useCallback(() => {
     hostPublicationRecoveryRequestedRef.current = false;
+    hostPlaybackRecoveryCheckpointRef.current = null;
     fileDiagnosticsRequestIdRef.current += 1;
     filePublicationRequestIdRef.current += 1;
     stopCurrentFilePublication();
@@ -516,6 +541,7 @@ export function useRoomSession(routeRoomId?: string) {
   const selectFile = useCallback(
     async (file: File) => {
       hostPublicationRecoveryRequestedRef.current = false;
+      hostPlaybackRecoveryCheckpointRef.current = null;
       const requestId = fileDiagnosticsRequestIdRef.current + 1;
       fileDiagnosticsRequestIdRef.current = requestId;
       filePublicationRequestIdRef.current += 1;
@@ -668,99 +694,115 @@ export function useRoomSession(routeRoomId?: string) {
     hostSeekControllerRef.current?.seek(seconds, onComplete);
   }, []);
 
-  const publishFile = useCallback(async () => {
-    const file = state.fileResult;
-    const connection = liveKitConnectionRef.current;
-    const participant = participantRef.current;
+  const publishFile = useCallback(
+    async (options: PublishFileOptions = {}) => {
+      const file = state.fileResult;
+      const connection = liveKitConnectionRef.current;
+      const participant = participantRef.current;
 
-    if (participant?.role !== "HOST") {
-      setState((current) => ({
-        ...current,
-        filePublicationError: "Публиковать файл может только host.",
-        filePublicationStatus: "error",
-        filePublicationTrackCount: 0,
-      }));
-      return;
-    }
-
-    if (!file) {
-      setState((current) => ({
-        ...current,
-        filePublicationError: "Сначала выберите видеофайл.",
-        filePublicationStatus: "error",
-        filePublicationTrackCount: 0,
-      }));
-      return;
-    }
-
-    if (!connection || state.liveKitStatus !== "connected") {
-      setState((current) => ({
-        ...current,
-        filePublicationError: "LiveKit ещё не подключён.",
-        filePublicationStatus: "error",
-        filePublicationTrackCount: 0,
-      }));
-      return;
-    }
-
-    const requestId = filePublicationRequestIdRef.current + 1;
-    hostPublicationRecoveryRequestedRef.current = false;
-    filePublicationRequestIdRef.current = requestId;
-    stopCurrentFilePublication();
-    setState((current) => ({
-      ...current,
-      filePublicationError: null,
-      filePublicationStatus: "publishing",
-      filePublicationTrackCount: 0,
-    }));
-
-    try {
-      const publication = await publishFileToLiveKit(connection.room, file);
-      if (filePublicationRequestIdRef.current !== requestId) {
-        stopLiveKitFilePublication(connection.room, publication);
+      if (participant?.role !== "HOST") {
+        setState((current) => ({
+          ...current,
+          filePublicationError: "Публиковать файл может только host.",
+          filePublicationStatus: "error",
+          filePublicationTrackCount: 0,
+        }));
         return;
       }
 
-      filePublicationRef.current = publication;
-      attachHostPreview(publication);
-      playbackStatePublisherRef.current = createHostPlaybackStatePublisher(
-        connection.room,
-        publication.videoElement,
-        file.displayName,
-      );
-      startHostPlaybackTracking(publication.videoElement);
+      if (!file) {
+        setState((current) => ({
+          ...current,
+          filePublicationError: "Сначала выберите видеофайл.",
+          filePublicationStatus: "error",
+          filePublicationTrackCount: 0,
+        }));
+        return;
+      }
+
+      if (!connection || state.liveKitStatus !== "connected") {
+        setState((current) => ({
+          ...current,
+          filePublicationError: "LiveKit ещё не подключён.",
+          filePublicationStatus: "error",
+          filePublicationTrackCount: 0,
+        }));
+        return;
+      }
+
+      const requestId = filePublicationRequestIdRef.current + 1;
+      hostPublicationRecoveryRequestedRef.current = false;
+      hostPlaybackRecoveryCheckpointRef.current = null;
+      filePublicationRequestIdRef.current = requestId;
+      stopCurrentFilePublication();
       setState((current) => ({
         ...current,
         filePublicationError: null,
-        filePublicationStatus: "live",
-        filePublicationTrackCount: publication.tracks.length,
-      }));
-      telemetryTrackerRef.current?.onPublishStart();
-    } catch (error) {
-      if (filePublicationRequestIdRef.current !== requestId) {
-        return;
-      }
-
-      const message =
-        error instanceof FilePublicationFailure
-          ? error.message
-          : "Не удалось опубликовать файл в LiveKit.";
-      filePublicationRef.current = null;
-      setState((current) => ({
-        ...current,
-        filePublicationError: message,
-        filePublicationStatus: "error",
+        filePublicationStatus: options.status ?? "publishing",
         filePublicationTrackCount: 0,
       }));
-      telemetryTrackerRef.current?.onPublishFailure(message);
+
+      try {
+        const publication = await publishFileToLiveKit(connection.room, file, options.checkpoint);
+        if (filePublicationRequestIdRef.current !== requestId) {
+          stopLiveKitFilePublication(connection.room, publication);
+          return;
+        }
+
+        filePublicationRef.current = publication;
+        attachHostPreview(publication);
+        playbackStatePublisherRef.current = createHostPlaybackStatePublisher(
+          connection.room,
+          publication.videoElement,
+          file.displayName,
+        );
+        startHostPlaybackTracking(publication.videoElement);
+        setState((current) => ({
+          ...current,
+          filePublicationError: null,
+          filePublicationStatus: "live",
+          filePublicationTrackCount: publication.tracks.length,
+        }));
+        telemetryTrackerRef.current?.onPublishStart();
+      } catch (error) {
+        if (filePublicationRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        const message =
+          error instanceof FilePublicationFailure
+            ? error.message
+            : "Не удалось опубликовать файл в LiveKit.";
+        filePublicationRef.current = null;
+        setState((current) => ({
+          ...current,
+          filePublicationError: message,
+          filePublicationStatus: "error",
+          filePublicationTrackCount: 0,
+        }));
+        telemetryTrackerRef.current?.onPublishFailure(message);
+      }
+    },
+    [
+      attachHostPreview,
+      startHostPlaybackTracking,
+      state.fileResult,
+      state.liveKitStatus,
+      stopCurrentFilePublication,
+    ],
+  );
+
+  const restartFilePublication = useCallback(async () => {
+    const publication = filePublicationRef.current;
+    if (participantRef.current?.role !== "HOST" || !publication) {
+      return;
     }
-  }, [
-    attachHostPreview,
-    startHostPlaybackTracking,
-    state.fileResult,
-    state.liveKitStatus,
-    stopCurrentFilePublication,
-  ]);
+
+    await publishFile({
+      checkpoint: createHostPlaybackCheckpoint(publication.videoElement),
+      status: "restarting",
+    });
+  }, [publishFile]);
 
   const disconnectLiveKit = useCallback(
     (nextStatus: LiveKitConnectionStatus = "idle") => {
@@ -880,6 +922,9 @@ export function useRoomSession(routeRoomId?: string) {
             if (status === "disconnected") {
               hostPublicationRecoveryRequestedRef.current =
                 participantRef.current?.role === "HOST" && filePublicationRef.current !== null;
+              hostPlaybackRecoveryCheckpointRef.current = filePublicationRef.current
+                ? createHostPlaybackCheckpoint(filePublicationRef.current.videoElement)
+                : null;
               filePublicationRequestIdRef.current += 1;
               stopCurrentFilePublication();
               voiceRequestIdRef.current += 1;
@@ -1808,7 +1853,11 @@ export function useRoomSession(routeRoomId?: string) {
       return;
     }
 
-    if (state.filePublicationStatus === "live" || state.filePublicationStatus === "publishing") {
+    if (
+      state.filePublicationStatus === "live" ||
+      state.filePublicationStatus === "publishing" ||
+      state.filePublicationStatus === "restarting"
+    ) {
       hostPublicationRecoveryRequestedRef.current = false;
       return;
     }
@@ -1825,8 +1874,10 @@ export function useRoomSession(routeRoomId?: string) {
       return;
     }
 
+    const checkpoint = hostPlaybackRecoveryCheckpointRef.current ?? undefined;
     hostPublicationRecoveryRequestedRef.current = false;
-    void publishFile();
+    hostPlaybackRecoveryCheckpointRef.current = null;
+    void publishFile({ checkpoint });
   }, [
     publishFile,
     state.filePublicationStatus,
@@ -1848,6 +1899,7 @@ export function useRoomSession(routeRoomId?: string) {
     hostPause,
     hostPlay,
     hostSeek,
+    restartFilePublication,
     inviteUrl,
     join,
     leave,

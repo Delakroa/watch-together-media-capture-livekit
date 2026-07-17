@@ -224,13 +224,16 @@ export function HomePage() {
   const roomClosed = room?.status === "CLOSED" || room?.status === "EXPIRED";
   const isHost = participant?.role === "HOST";
   const isRoomActionPending = roomSession.pendingAction !== null;
-  const isFilePublishing = roomSession.filePublicationStatus === "publishing";
+  const isFilePublishing =
+    roomSession.filePublicationStatus === "publishing" ||
+    roomSession.filePublicationStatus === "restarting";
   const canPublishFile =
     roomSession.fileStatus === "ready" &&
     roomSession.liveKitStatus === "connected" &&
     !isFilePublishing;
   const canStopFilePublication =
     roomSession.filePublicationStatus === "publishing" ||
+    roomSession.filePublicationStatus === "restarting" ||
     roomSession.filePublicationStatus === "live";
   const canUseVoice = roomSession.liveKitStatus === "connected" && !roomClosed;
   const voiceRequiresSecureContext = globalThis.isSecureContext === false;
@@ -1154,15 +1157,28 @@ export function HomePage() {
                       <output aria-live="polite">{playbackVolume}%</output>
                     </div>
 
-                    <button
-                      className="icon-button remote-player__fullscreen"
-                      type="button"
-                      aria-label="Развернуть видео на весь экран"
-                      title="На весь экран"
-                      onClick={handleToggleWatchFullscreen}
-                    >
-                      <Maximize2 size={18} aria-hidden="true" />
-                    </button>
+                    <div className="remote-player__stage-actions">
+                      {isHost && roomSession.filePublicationStatus === "live" && (
+                        <button
+                          className="icon-button remote-player__restart"
+                          type="button"
+                          aria-label="Перезапустить трансляцию с текущей позиции"
+                          title="Восстановить трансляцию"
+                          onClick={() => void roomSession.restartFilePublication()}
+                        >
+                          <RefreshCw size={18} aria-hidden="true" />
+                        </button>
+                      )}
+                      <button
+                        className="icon-button remote-player__fullscreen"
+                        type="button"
+                        aria-label="Развернуть видео на весь экран"
+                        title="На весь экран"
+                        onClick={handleToggleWatchFullscreen}
+                      >
+                        <Maximize2 size={18} aria-hidden="true" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2346,6 +2362,7 @@ function formatFilePublicationStatus(status: FilePublicationStatus, trackCount: 
     idle: "Не опубликовано",
     live: `Live · ${formatTrackCount(trackCount)}`,
     publishing: "Публикация",
+    restarting: "Восстановление",
   };
 
   return labels[status];
@@ -2357,6 +2374,7 @@ function toHostWatchPlaybackStatus(status: FilePublicationStatus): RemotePlaybac
     idle: "idle",
     live: "receiving",
     publishing: "waiting",
+    restarting: "waiting",
   };
 
   return statuses[status];
@@ -2368,6 +2386,7 @@ function formatHostWatchPlaybackStatus(status: FilePublicationStatus) {
     idle: "Нет потока",
     live: "Совместный просмотр",
     publishing: "Публикация",
+    restarting: "Восстанавливаем показ",
   };
 
   return labels[status];
@@ -2379,6 +2398,7 @@ function formatHostWatchPlaybackHint(status: FilePublicationStatus) {
     idle: "Видео ещё не опубликовано.",
     live: "Видео опубликовано.",
     publishing: "Готовим локальный экран и дорожки LiveKit.",
+    restarting: "Перезапускаем поток с текущей позиции.",
   };
 
   return labels[status];

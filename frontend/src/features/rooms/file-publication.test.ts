@@ -32,6 +32,7 @@ function createStream(videoTracks: MediaStreamTrack[], audioTracks: MediaStreamT
 
 function createVideoStub(stream: MediaStream) {
   const listeners = new Map<string, Set<() => void>>();
+  let currentTime = 0;
   const stub: Record<string, unknown> = {
     duration: 120,
     muted: false,
@@ -60,6 +61,20 @@ function createVideoStub(stream: MediaStream) {
       Promise.resolve().then(() => {
         (stub.onloadedmetadata as (() => void) | null)?.();
         for (const listener of listeners.get("loadedmetadata") ?? []) {
+          listener();
+        }
+      });
+    },
+  });
+
+  Object.defineProperty(stub, "currentTime", {
+    get() {
+      return currentTime;
+    },
+    set(value: number) {
+      currentTime = value;
+      queueMicrotask(() => {
+        for (const listener of listeners.get("seeked") ?? []) {
           listener();
         }
       });
@@ -163,5 +178,36 @@ describe("publishFileToLiveKit", () => {
 
     expect(room.localParticipant.publishTrack).not.toHaveBeenCalled();
     expect(audioTrack.stop).toHaveBeenCalled();
+  });
+
+  it("восстанавливает позицию и паузу перед публикацией нового потока", async () => {
+    const videoTrack = createTrack("video");
+    const stream = createStream([videoTrack]);
+    const videoStub = createVideoStub(stream);
+    vi.spyOn(document, "createElement").mockReturnValue(videoStub as unknown as HTMLElement);
+    const room = createRoom();
+
+    await publishFileToLiveKit(
+      room as never,
+      {
+        displayName: "movie.mp4",
+        durationMs: 120000,
+        format: "mp4",
+        formatLabel: "MP4",
+        hasAudio: false,
+        hasVideo: true,
+        height: 1080,
+        mimeType: "video/mp4",
+        objectUrl: "blob:movie",
+        verdict: "CAN_STREAM",
+        verdictLabel: "Можно транслировать с этого устройства",
+        width: 1920,
+      },
+      { startAtSeconds: 48.5, startPaused: true },
+    );
+
+    expect((videoStub as { currentTime: number }).currentTime).toBe(48.5);
+    expect(videoStub.pause).toHaveBeenCalledTimes(1);
+    expect(room.localParticipant.publishTrack).toHaveBeenCalledWith(videoTrack, expect.any(Object));
   });
 });

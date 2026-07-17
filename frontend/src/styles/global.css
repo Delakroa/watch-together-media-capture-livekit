@@ -1002,7 +1002,14 @@ a {
   transform: translateY(0);
 }
 
-.remote-player__fullscreen {
+.remote-player__stage-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.remote-player__fullscreen,
+.remote-player__restart {
   flex: 0 0 auto;
   border-color: rgb(255 255 255 / 18%);
   color: #ffffff;
@@ -1011,11 +1018,13 @@ a {
   backdrop-filter: blur(12px) saturate(1.25);
 }
 
-.remote-player__fullscreen:hover {
+.remote-player__fullscreen:hover,
+.remote-player__restart:hover {
   background: rgb(26 30 42 / 82%);
 }
 
-.remote-player__fullscreen:focus-visible {
+.remote-player__fullscreen:focus-visible,
+.remote-player__restart:focus-visible {
   outline: 3px solid rgb(255 255 255 / 34%);
   outline-offset: 3px;
 }

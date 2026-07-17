@@ -101,6 +101,7 @@ P7 repo-side готов; реальные evidence/QoS отчёты заполн
 - [WT-625_STABLE_CHAT_RAIL.md](WT-625_STABLE_CHAT_RAIL.md) — фиксированный desktop chat rail: история прокручивается внутри панели и не меняет сетку комнаты.
 - [WT-626_MEDIA_AUDIO_CONTROLS.md](WT-626_MEDIA_AUDIO_CONTROLS.md) — локальные громкость и mute/unmute для просмотра, плюс recovery аудио после autoplay-block у guest.
 - [WT-627_STAGE_CONTROLS_AND_STABLE_SEEK.md](WT-627_STAGE_CONTROLS_AND_STABLE_SEEK.md) — единый auto-hide glass-слой controls и последовательная host-перемотка без визуального рывка progress bar.
+- [WT-628_PLAYBACK_RECOVERY.md](WT-628_PLAYBACK_RECOVERY.md) — host recovery выбранного файла: restart tracks без потери позиции или состояния паузы, включая LiveKit reconnect.
 
 ## Как обновлять документы
 

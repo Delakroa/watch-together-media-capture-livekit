@@ -1028,6 +1028,9 @@ describe("HomePage", () => {
     expect(stageControls).toContainElement(
       screen.getByRole("button", { name: "Развернуть видео на весь экран" }),
     );
+    expect(
+      screen.queryByRole("button", { name: "Перезапустить трансляцию с текущей позиции" }),
+    ).not.toBeInTheDocument();
     expect(remoteAudio.muted).toBe(false);
     expect(remoteAudio.volume).toBe(1);
     await user.click(screen.getByRole("button", { name: "Выключить звук" }));
@@ -1320,6 +1323,9 @@ describe("HomePage", () => {
 
     expect(await screen.findByText("Live · 2 дорожки")).toBeInTheDocument();
     expect(await screen.findByText("Совместный просмотр")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Перезапустить трансляцию с текущей позиции" }),
+    ).toBeInTheDocument();
     const hostPreview = document.querySelector(".remote-player__video") as HTMLVideoElement;
     expect(hostPreview.srcObject).toBe(publishStream);
     expect(hostPreview.muted).toBe(false);

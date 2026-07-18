@@ -107,6 +107,7 @@ P7 repo-side готов; реальные evidence/QoS отчёты заполн
 - [WT-631_RECOVERY_ACKNOWLEDGEMENT.md](WT-631_RECOVERY_ACKNOWLEDGEMENT.md) — адресное подтверждение guest-у о старте и результате recovery без раскрытия контента и без автоматического действия.
 - [WT-632_RECOVERY_REQUEST_CORRELATION.md](WT-632_RECOVERY_REQUEST_CORRELATION.md) — correlation ID связывает recovery request со статусами и защищает новую попытку от запоздавшего результата предыдущей.
 - [WT-633_RECOVERY_RESPONSE_TIMEOUT.md](WT-633_RECOVERY_RESPONSE_TIMEOUT.md) — guest получает явный unanswered после таймаута ответа host-а и может повторить recovery request.
+- [WT-634_RECOVERY_RESULT_TIMEOUT.md](WT-634_RECOVERY_RESULT_TIMEOUT.md) — started получает конечный timed_out, если итоговый recovery status не дошёл до guest-а.
 
 ## Как обновлять документы
 

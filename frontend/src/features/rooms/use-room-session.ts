@@ -108,7 +108,7 @@ export type FileStatus = "idle" | "checking" | "ready" | "error";
 export type FilePublicationStatus = "idle" | "publishing" | "restarting" | "live" | "error";
 export type HostPlaybackStatus = "idle" | "playing" | "paused" | "ended";
 export type MediaRecoveryRequestStatus = "idle" | "sending" | "sent" | "unanswered" | "error";
-export type MediaRecoveryHostStatus = "idle" | MediaRecoveryStatus;
+export type MediaRecoveryHostStatus = "idle" | "timed_out" | MediaRecoveryStatus;
 export type RoomUserErrorArea = "room" | "websocket" | "livekit";
 export type RoomUserErrorAction = "retry-room-action" | "retry-websocket" | "retry-livekit";
 
@@ -1996,13 +1996,22 @@ export function useRoomSession(routeRoomId?: string) {
       return undefined;
     }
 
-    const timer = window.setTimeout(() => {
-      setState((current) =>
-        current.mediaRecoveryHostStatus === state.mediaRecoveryHostStatus
-          ? { ...current, mediaRecoveryHostStatus: "idle" }
-          : current,
-      );
-    }, 10_000);
+    const timer = window.setTimeout(
+      () => {
+        setState((current) => {
+          if (current.mediaRecoveryHostStatus !== state.mediaRecoveryHostStatus) {
+            return current;
+          }
+
+          return {
+            ...current,
+            mediaRecoveryHostStatus:
+              current.mediaRecoveryHostStatus === "started" ? "timed_out" : "idle",
+          };
+        });
+      },
+      state.mediaRecoveryHostStatus === "started" ? 30_000 : 10_000,
+    );
 
     return () => window.clearTimeout(timer);
   }, [state.mediaRecoveryHostStatus]);

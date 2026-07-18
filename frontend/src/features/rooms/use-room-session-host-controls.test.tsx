@@ -3,81 +3,93 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { publishFileToLiveKit, stopFilePublication } from "./file-publication";
+import { MEDIA_RECOVERY_SIGNAL_TOPIC, encodeMediaRecoverySignal } from "./media-recovery-signal";
 import { useRoomSession } from "./use-room-session";
 import { submitTelemetry } from "../telemetry/telemetry-api";
 
-const { liveKitHandlers, mockGuestSnapshot, mockVideoElement, mockRoomSnapshot } = vi.hoisted(
-  () => {
-    const ROOM_ID = "AbCdEfGhIjKlMnOpQrStUv";
-    const HOST_ID = "d0f8636f-e21e-4d7b-9fce-6fb0e6fb5678";
-    const GUEST_ID = "8e7d79a8-a49f-48cc-a409-f07890dd3218";
-    const liveKitHandlers: Array<{ onStatusChange: (status: string) => void }> = [];
+const {
+  liveKitDataHandlers,
+  liveKitHandlers,
+  mockGuestSnapshot,
+  mockVideoElement,
+  mockRoomSnapshot,
+} = vi.hoisted(() => {
+  const ROOM_ID = "AbCdEfGhIjKlMnOpQrStUv";
+  const HOST_ID = "d0f8636f-e21e-4d7b-9fce-6fb0e6fb5678";
+  const GUEST_ID = "8e7d79a8-a49f-48cc-a409-f07890dd3218";
+  const liveKitHandlers: Array<{ onStatusChange: (status: string) => void }> = [];
+  const liveKitDataHandlers = new Set<(...args: unknown[]) => void>();
 
-    const mockRoomSnapshot = {
-      roomId: ROOM_ID,
-      status: "READY" as const,
-      hostParticipantId: HOST_ID,
-      participants: [
-        {
-          participantId: HOST_ID,
-          displayName: "Host",
-          role: "HOST" as const,
-          online: true,
-          joinedAt: "2026-07-10T10:00:00Z",
-        },
-      ],
-      media: null,
-      roomVersion: 1,
-      expiresAt: "2026-07-10T14:00:00Z",
-      updatedAt: "2026-07-10T10:00:00Z",
-    };
-    const listeners = new Map<string, Set<EventListener>>();
-
-    const mockVideoElement = {
-      currentTime: 0,
-      duration: 120,
-      ended: false,
-      paused: true,
-      play: vi.fn().mockResolvedValue(undefined),
-      pause: vi.fn(),
-      addEventListener: vi.fn((type: string, listener: EventListener) => {
-        listeners.set(type, new Set([...(listeners.get(type) ?? []), listener]));
-      }),
-      removeEventListener: vi.fn((type: string, listener: EventListener) => {
-        listeners.get(type)?.delete(listener);
-      }),
-      emit(type: string) {
-        for (const listener of listeners.get(type) ?? []) {
-          listener(new Event(type));
-        }
+  const mockRoomSnapshot = {
+    roomId: ROOM_ID,
+    status: "READY" as const,
+    hostParticipantId: HOST_ID,
+    participants: [
+      {
+        participantId: HOST_ID,
+        displayName: "Host",
+        role: "HOST" as const,
+        online: true,
+        joinedAt: "2026-07-10T10:00:00Z",
       },
-      reset() {
-        listeners.clear();
-        this.currentTime = 0;
-        this.duration = 120;
-        this.ended = false;
-        this.paused = true;
-        this.play.mockResolvedValue(undefined);
+    ],
+    media: null,
+    roomVersion: 1,
+    expiresAt: "2026-07-10T14:00:00Z",
+    updatedAt: "2026-07-10T10:00:00Z",
+  };
+  const listeners = new Map<string, Set<EventListener>>();
+
+  const mockVideoElement = {
+    currentTime: 0,
+    duration: 120,
+    ended: false,
+    paused: true,
+    play: vi.fn().mockResolvedValue(undefined),
+    pause: vi.fn(),
+    addEventListener: vi.fn((type: string, listener: EventListener) => {
+      listeners.set(type, new Set([...(listeners.get(type) ?? []), listener]));
+    }),
+    removeEventListener: vi.fn((type: string, listener: EventListener) => {
+      listeners.get(type)?.delete(listener);
+    }),
+    emit(type: string) {
+      for (const listener of listeners.get(type) ?? []) {
+        listener(new Event(type));
+      }
+    },
+    reset() {
+      listeners.clear();
+      this.currentTime = 0;
+      this.duration = 120;
+      this.ended = false;
+      this.paused = true;
+      this.play.mockResolvedValue(undefined);
+    },
+  };
+
+  const mockGuestSnapshot = {
+    ...mockRoomSnapshot,
+    participants: [
+      ...mockRoomSnapshot.participants,
+      {
+        participantId: GUEST_ID,
+        displayName: "Guest",
+        role: "GUEST" as const,
+        online: true,
+        joinedAt: "2026-07-10T10:01:00Z",
       },
-    };
+    ],
+  };
 
-    const mockGuestSnapshot = {
-      ...mockRoomSnapshot,
-      participants: [
-        ...mockRoomSnapshot.participants,
-        {
-          participantId: GUEST_ID,
-          displayName: "Guest",
-          role: "GUEST" as const,
-          online: true,
-          joinedAt: "2026-07-10T10:01:00Z",
-        },
-      ],
-    };
-
-    return { liveKitHandlers, mockGuestSnapshot, mockVideoElement, mockRoomSnapshot };
-  },
-);
+  return {
+    liveKitDataHandlers,
+    liveKitHandlers,
+    mockGuestSnapshot,
+    mockVideoElement,
+    mockRoomSnapshot,
+  };
+});
 
 vi.mock("./room-api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./room-api")>();
@@ -109,14 +121,24 @@ vi.mock("./livekit-connection", () => ({
         liveKitHandlers.push(handlers);
         const { onStatusChange } = handlers;
         onStatusChange("connected");
+        const room = {
+          localParticipant: { publishData: vi.fn() },
+          on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+            if (event === "dataReceived") {
+              liveKitDataHandlers.add(handler);
+            }
+            return room;
+          }),
+          off: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+            if (event === "dataReceived") {
+              liveKitDataHandlers.delete(handler);
+            }
+          }),
+          remoteParticipants: new Map(),
+        };
         return {
           disconnect: vi.fn(),
-          room: {
-            localParticipant: { publishData: vi.fn() },
-            on: vi.fn().mockReturnThis(),
-            off: vi.fn(),
-            remoteParticipants: new Map(),
-          },
+          room,
         };
       },
     ),
@@ -306,6 +328,7 @@ async function setupLivePublication(user: ReturnType<typeof userEvent.setup>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  liveKitDataHandlers.clear();
   liveKitHandlers.length = 0;
   mockVideoElement.reset();
 });
@@ -317,6 +340,49 @@ afterEach(() => {
 });
 
 describe("useRoomSession host playback controls", () => {
+  it("показывает timed_out, если started не завершился итоговым status", async () => {
+    const user = userEvent.setup();
+    render(<HostControlsHarness />);
+    vi.stubGlobal("WebSocket", MockWebSocket);
+
+    await user.click(screen.getByRole("button", { name: "Войти" }));
+    MockWebSocket.instances[0]?.onopen?.(new Event("open"));
+    await waitFor(() => expect(liveKitDataHandlers.size).toBeGreaterThan(0));
+
+    const nativeSetTimeout = window.setTimeout.bind(window);
+    let resultTimeoutCallback: (() => void) | undefined;
+    const timeoutSpy = vi.spyOn(window, "setTimeout").mockImplementation((handler, timeout) => {
+      if (timeout === 30_000 && typeof handler === "function") {
+        resultTimeoutCallback = handler;
+        return 1 as unknown as ReturnType<typeof setTimeout>;
+      }
+      return nativeSetTimeout(handler, timeout) as unknown as ReturnType<typeof setTimeout>;
+    });
+    const startedPayload = encodeMediaRecoverySignal({
+      occurredAt: "2026-07-18T20:00:00.000Z",
+      schemaVersion: 1,
+      status: "started",
+      type: "media.recovery.status",
+    });
+
+    act(() => {
+      for (const handler of liveKitDataHandlers) {
+        handler(
+          startedPayload,
+          { identity: mockRoomSnapshot.hostParticipantId },
+          undefined,
+          MEDIA_RECOVERY_SIGNAL_TOPIC,
+        );
+      }
+    });
+    expect(screen.getByTestId("recovery-host-status")).toHaveTextContent("started");
+
+    act(() => resultTimeoutCallback?.());
+
+    expect(screen.getByTestId("recovery-host-status")).toHaveTextContent("timed_out");
+    timeoutSpy.mockRestore();
+  });
+
   it("показывает unanswered, если host не подтвердил recovery request", async () => {
     const user = userEvent.setup();
     render(<HostControlsHarness />);

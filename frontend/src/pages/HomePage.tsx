@@ -237,7 +237,8 @@ export function HomePage() {
       );
   const isMediaRecoveryGuestError =
     roomSession.mediaRecoveryRequestStatus === "error" ||
-    roomSession.mediaRecoveryHostStatus === "failed";
+    roomSession.mediaRecoveryHostStatus === "failed" ||
+    roomSession.mediaRecoveryHostStatus === "timed_out";
   const isRoomActionPending = roomSession.pendingAction !== null;
   const isFilePublishing =
     roomSession.filePublicationStatus === "publishing" ||
@@ -2470,7 +2471,7 @@ function formatHostWatchPlaybackHint(status: FilePublicationStatus) {
 function formatMediaRecoveryGuestStatus(
   requestStatus: "idle" | "sending" | "sent" | "unanswered" | "error",
   requestError: string | null,
-  hostStatus: "idle" | "started" | "succeeded" | "failed",
+  hostStatus: "idle" | "started" | "succeeded" | "failed" | "timed_out",
 ) {
   if (hostStatus === "started") {
     return "Host запускает восстановление трансляции…";
@@ -2480,6 +2481,9 @@ function formatMediaRecoveryGuestStatus(
   }
   if (hostStatus === "failed") {
     return "Host пока не смог восстановить трансляцию.";
+  }
+  if (hostStatus === "timed_out") {
+    return "Не получили результат восстановления. Можно отправить сигнал ещё раз.";
   }
   if (requestStatus === "sending") {
     return "Отправляем сигнал host-у…";

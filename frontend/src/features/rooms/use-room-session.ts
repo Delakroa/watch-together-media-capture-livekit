@@ -1708,6 +1708,16 @@ export function useRoomSession(routeRoomId?: string) {
           return;
         }
 
+        if (isInviteRouteWithoutSession(error)) {
+          setState((current) => ({
+            ...current,
+            error: null,
+            pendingAction: null,
+            userError: null,
+          }));
+          return;
+        }
+
         const userError = createRoomActionUserError(error);
         setState((current) => ({
           ...current,
@@ -2309,6 +2319,14 @@ function createRoomActionUserError(error: unknown): RoomUserError {
     retryable: true,
     title: "Действие не выполнено",
   };
+}
+
+function isInviteRouteWithoutSession(error: unknown) {
+  return (
+    error instanceof ApiProblemError &&
+    error.problem.status === 401 &&
+    error.problem.code === "AUTHENTICATION_REQUIRED"
+  );
 }
 
 function createWebSocketUserError(message: string, retryable: boolean): RoomUserError {

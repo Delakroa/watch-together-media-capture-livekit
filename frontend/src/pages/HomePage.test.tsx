@@ -774,6 +774,63 @@ describe("HomePage", () => {
     expect(await screen.findByText("LiveKit: подключён")).toBeInTheDocument();
   });
 
+  it("не показывает ошибку гостю, который впервые открывает invite route", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+
+      if (url.endsWith("/health")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ status: "UP", checkedAt: "2026-07-19T14:00:00Z" }), {
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.endsWith("/version")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              name: "watch-together-backend",
+              version: "0.1.0",
+              buildTime: "2026-07-19T14:00:00Z",
+              apiVersion: "v1",
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+
+      if (url.endsWith(`/api/v1/rooms/${roomId}`)) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              title: "Authentication required",
+              status: 401,
+              code: "AUTHENTICATION_REQUIRED",
+              detail: "Session credential отсутствует или недействительна.",
+              retryable: false,
+            }),
+            { status: 401 },
+          ),
+        );
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+
+    renderPage([`/rooms/${roomId}`]);
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringMatching(new RegExp(`/api/v1/rooms/${roomId}$`)),
+        expect.anything(),
+      ),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Invite-ссылка или ID комнаты")).toHaveValue(roomId);
+    expect(screen.getByRole("button", { name: "Войти" })).toBeEnabled();
+  });
+
   it("host видит file picker после создания комнаты, guest — нет", async () => {
     vi.stubGlobal("WebSocket", MockWebSocket);
     const user = userEvent.setup();

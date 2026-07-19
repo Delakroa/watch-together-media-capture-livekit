@@ -213,7 +213,10 @@ export function HomePage() {
   const [feedbackStatus, setFeedbackStatus] = useState<FeedbackSubmitStatus>("idle");
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [feedbackReceipt, setFeedbackReceipt] = useState<FeedbackResponse | null>(null);
-  const joinRoomId = joinRoomIdDraft || routeRoomId || "";
+  const isUnavailableInviteRoute = Boolean(
+    routeRoomId && roomSession.userError?.area === "room" && roomSession.userError.status === 404,
+  );
+  const joinRoomId = isUnavailableInviteRoute ? "" : joinRoomIdDraft || routeRoomId || "";
   const isOnline = !isPending && !isError;
   const room = roomSession.room;
   const participant = roomSession.participant;
@@ -226,14 +229,10 @@ export function HomePage() {
   const isHost = participant?.role === "HOST";
 
   useEffect(() => {
-    if (
-      routeRoomId &&
-      roomSession.userError?.area === "room" &&
-      roomSession.userError.status === 404
-    ) {
+    if (isUnavailableInviteRoute) {
       navigate("/", { replace: true });
     }
-  }, [navigate, roomSession.userError, routeRoomId]);
+  }, [isUnavailableInviteRoute, navigate]);
   const mediaRecoveryRequester = roomSession.mediaRecoveryAlert
     ? (room?.participants.find(
         (item) => item.participantId === roomSession.mediaRecoveryAlert?.participantIdentity,

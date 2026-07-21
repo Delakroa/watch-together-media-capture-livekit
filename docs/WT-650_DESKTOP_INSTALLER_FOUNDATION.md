@@ -46,5 +46,12 @@ Azure Trusted Signing. Production config включает `forceCodeSigning`, п
 LiveKit path. Это подтверждает упаковку, но не заменяет signed install smoke
 с реальным LiveKit на чистой машине.
 
+2026-07-21 manual unsigned workflow из `main` успешно собрал и сохранил
+preview artifacts с реальным LiveKit `v1.13.3` для macOS Intel, macOS Apple
+Silicon и Windows NSIS. Это подтверждает воспроизводимость packaging на трёх
+целевых GitHub runners; artifacts имеют retention 14 дней и не являются
+release-дистрибутивом. Signed/notarized install smoke на чистых физических
+машинах по-прежнему требует production signing credentials.
+
 В этой ветке не публикуются GitHub Release и не выполняется автообновление:
 сначала нужен успешный signed install smoke на обеих ОС.

@@ -1,0 +1,11 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.redis.autoconfigure.RedisAutoConfiguration
+      - org.springframework.boot.redis.autoconfigure.RedisReactiveAutoConfiguration
+
+watch-together:
+  rate-limit:
+    # Desktop host is a single trusted household process. The in-memory limiter
+    # preserves endpoint budgets without introducing a Redis runtime dependency.
+    enabled: ${RATE_LIMIT_ENABLED:true}

@@ -5,12 +5,14 @@ import java.util.List;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
+@Profile("!desktop")
 class RedisRoomCreationStore implements RoomCreationStore {
 
     private static final String CREATED_PREFIX = "CREATED:";

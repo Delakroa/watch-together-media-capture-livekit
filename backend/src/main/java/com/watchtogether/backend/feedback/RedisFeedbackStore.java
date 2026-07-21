@@ -7,12 +7,14 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
+@Profile("!desktop")
 class RedisFeedbackStore implements FeedbackStore {
 
     private static final String INDEX_KEY = "watch-together:v1:feedback:index";

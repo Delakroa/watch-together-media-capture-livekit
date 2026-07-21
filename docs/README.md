@@ -119,6 +119,7 @@ P7 repo-side готов; реальные evidence/QoS отчёты заполн
 - [WT-650_DESKTOP_INSTALLER_FOUNDATION.md](WT-650_DESKTOP_INSTALLER_FOUNDATION.md) — packaging, signed release gate и install smoke для DMG/NSIS.
 - [WT-651_NATIVE_MEDIA_COMPATIBILITY_POC.md](WT-651_NATIVE_MEDIA_COMPATIBILITY_POC.md) — native-media hypothesis, POC harness, license gate и критерии решения.
 - [WT-652_INTERNET_MODE_ARCHITECTURE.md](WT-652_INTERNET_MODE_ARCHITECTURE.md) — отдельный public Internet mode: account/invite, TLS/TURN, privacy, cost gates и последовательность запуска.
+- [WT-653_PUBLIC_ACCESS_CONTRACTS.md](WT-653_PUBLIC_ACCESS_CONTRACTS.md) — planned `/api/v2` account/invite/membership contracts без изменения LAN API.
 
 ## Как обновлять документы
 

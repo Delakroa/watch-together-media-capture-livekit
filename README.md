@@ -285,6 +285,7 @@ Media PoC остаётся референсной реализацией в [poc
 - [WT-650 desktop installer foundation](docs/WT-650_DESKTOP_INSTALLER_FOUNDATION.md)
 - [WT-651 native media compatibility POC](docs/WT-651_NATIVE_MEDIA_COMPATIBILITY_POC.md)
 - [WT-652 internet mode architecture](docs/WT-652_INTERNET_MODE_ARCHITECTURE.md)
+- [WT-653 public access contracts](docs/WT-653_PUBLIC_ACCESS_CONTRACTS.md)
 - [Definition of Done](docs/DEFINITION_OF_DONE.md)
 
 ## Правила foundation

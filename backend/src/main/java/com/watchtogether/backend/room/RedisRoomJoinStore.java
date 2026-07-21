@@ -10,12 +10,14 @@ import com.watchtogether.backend.room.RoomJoinStore.JoinResult;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
+@Profile("!desktop")
 class RedisRoomJoinStore implements RoomJoinStore {
 
     private static final String JOINED_PREFIX = "JOINED:";

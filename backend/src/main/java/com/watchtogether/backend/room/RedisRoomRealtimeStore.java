@@ -17,12 +17,14 @@ import com.watchtogether.backend.room.RoomRealtimeStore.PresenceResult;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
+@Profile("!desktop")
 class RedisRoomRealtimeStore implements RoomRealtimeStore {
 
     private static final Set<RoomStatus> AVAILABLE_STATUSES = EnumSet.of(

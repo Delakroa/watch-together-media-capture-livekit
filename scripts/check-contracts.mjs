@@ -25,8 +25,51 @@ function assertValid(validate, value, label) {
   }
 }
 
-await SwaggerParser.validate(path.join(contractsRoot, "openapi.yaml"));
+const openApi = await SwaggerParser.validate(
+  path.join(contractsRoot, "openapi.yaml"),
+);
 console.log("[ok] OpenAPI contract");
+
+const publicInviteSchema = openApi.components.schemas.PublicInviteCreated;
+const redeemInviteSchema = openApi.components.schemas.RedeemPublicInviteRequest;
+assert.equal(
+  openApi.components.securitySchemes.accountSessionCookie.name,
+  "wt_account",
+  "Planned Internet mode must keep account and LAN room cookies separate",
+);
+assert.equal(
+  openApi.paths["/api/v2/public-rooms"].post["x-implementation-status"],
+  "planned",
+  "Public room contract must not be presented as implemented before its runtime ticket",
+);
+assert.equal(
+  publicInviteSchema.properties.invitePath.pattern,
+  "^/join#invite=[A-Za-z0-9_-]{43}$",
+  "Raw invite token must stay in the browser-only URL fragment",
+);
+assert.equal(
+  redeemInviteSchema.properties.inviteToken.writeOnly,
+  true,
+  "Invite token must be write-only in the redemption request",
+);
+for (const pathItem of Object.values(openApi.paths)) {
+  const parameters = [
+    ...(pathItem.parameters ?? []),
+    ...Object.values(pathItem).flatMap(
+      (operation) => operation.parameters ?? [],
+    ),
+  ];
+  assert.equal(
+    parameters.some(
+      (parameter) =>
+        parameter.name === "inviteToken" &&
+        (parameter.in === "path" || parameter.in === "query"),
+    ),
+    false,
+    "Invite token must never appear in an API path or query parameter",
+  );
+}
+console.log("[ok] Planned Internet access contract privacy invariants");
 
 const [commonSchema, problemSchema, clientEventSchema, serverEventSchema] =
   await Promise.all([

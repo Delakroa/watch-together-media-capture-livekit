@@ -6,7 +6,8 @@ info:
   version: 1.0.0
   description: |
     Контракт product backend. Эндпоинты с `x-implementation-status: planned`
-    фиксируют границу для P2 и не считаются реализованными до соответствующего тикета.
+    фиксируют согласованную будущую API surface и не считаются реализованными до
+    соответствующего тикета.
 
 servers:
   - url: /
@@ -21,6 +22,8 @@ tags:
     description: Обратная связь closed beta и operator triage
   - name: Telemetry
     description: Privacy-safe client telemetry для beta-метрик
+  - name: Internet access
+    description: Planned account, membership и отзываемые invite для public Internet mode
 
 paths:
   /api/v1/health:
@@ -450,6 +453,337 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/v2/auth/email-challenges:
+    post:
+      tags: [Internet access]
+      operationId: requestEmailChallenge
+      summary: Запросить одноразовый email challenge для Internet mode
+      description: |
+        Planned endpoint. Возвращает одинаковый `202` для нового и существующего
+        email, чтобы не стать account-enumeration oracle. Одноразовый код
+        передаётся только через будущего configured email provider.
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailChallengeRequest"
+      responses:
+        "202":
+          description: Challenge принят к доставке без раскрытия account state
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailChallengeAccepted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/auth/email-challenges/{challengeId}/verify:
+    parameters:
+      - $ref: "#/components/parameters/EmailChallengeId"
+    post:
+      tags: [Internet access]
+      operationId: verifyEmailChallenge
+      summary: Подтвердить одноразовый email challenge
+      description: |
+        Planned endpoint. Успех создаёт или восстанавливает account и ставит
+        отдельную opaque `wt_account` cookie. Raw code не возвращается в response
+        и не сохраняется в browser storage.
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailChallengeRequest"
+      responses:
+        "200":
+          description: Email подтверждён, account session установлена
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/AccountSessionCookie"
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountProfile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/ChallengeRejected"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/account:
+    get:
+      tags: [Internet access]
+      operationId: getAccount
+      summary: Получить профиль текущего Internet-mode account
+      x-implementation-status: planned
+      security:
+        - accountSessionCookie: []
+      responses:
+        "200":
+          description: Минимальный account profile без email и credentials
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/public-rooms:
+    post:
+      tags: [Internet access]
+      operationId: createPublicRoom
+      summary: Создать private Internet-mode room
+      description: |
+        Planned endpoint. Создаёт только product access record; фильм, локальный
+        path и LiveKit credential не передаются в request и не возвращаются.
+      x-implementation-status: planned
+      security:
+        - accountSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePublicRoomRequest"
+      responses:
+        "201":
+          description: Public room создана, owner membership активна
+          headers:
+            Location:
+              description: API-адрес созданной public room
+              schema:
+                type: string
+                pattern: ^/api/v2/public-rooms/
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicRoomAccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/AccountLimitReached"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/public-rooms/{publicRoomId}:
+    parameters:
+      - $ref: "#/components/parameters/PublicRoomId"
+    get:
+      tags: [Internet access]
+      operationId: getPublicRoom
+      summary: Получить public room только для её member-а
+      x-implementation-status: planned
+      security:
+        - accountSessionCookie: []
+      responses:
+        "200":
+          description: Authoritative public room access snapshot
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicRoomAccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/MembershipRequired"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/public-rooms/{publicRoomId}/livekit-token:
+    parameters:
+      - $ref: "#/components/parameters/PublicRoomId"
+    post:
+      tags: [Internet access]
+      operationId: mintPublicRoomLiveKitToken
+      summary: Выдать краткоживущий LiveKit token только public room member-у
+      description: |
+        Planned endpoint. Account membership проверяется до выпуска token; revoke
+        запрещает новые tokens и будущая runtime-реализация удаляет participant
+        через LiveKit Server API.
+      x-implementation-status: planned
+      security:
+        - accountSessionCookie: []
+      responses:
+        "200":
+          description: Краткоживущий LiveKit JWT с grants текущей media-роли
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveKitTokenResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/MembershipRequired"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/public-rooms/{publicRoomId}/invites:
+    parameters:
+      - $ref: "#/components/parameters/PublicRoomId"
+    post:
+      tags: [Internet access]
+      operationId: createPublicRoomInvite
+      summary: Создать отзываемый invite для private Internet-mode room
+      description: |
+        Planned endpoint. Raw invite token возвращается только в этом `no-store`
+        response как hash-only browser route. В storage и дальнейших ответах
+        остаются только invite ID и hash token-а.
+      x-implementation-status: planned
+      security:
+        - accountSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePublicInviteRequest"
+      responses:
+        "201":
+          description: Invite создан, raw token больше не будет доступен через API
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicInviteCreated"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/MembershipRequired"
+        "409":
+          $ref: "#/components/responses/AccountLimitReached"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/public-rooms/{publicRoomId}/invites/{inviteId}/revoke:
+    parameters:
+      - $ref: "#/components/parameters/PublicRoomId"
+      - $ref: "#/components/parameters/PublicInviteId"
+    post:
+      tags: [Internet access]
+      operationId: revokePublicRoomInvite
+      summary: Отозвать public room invite
+      x-implementation-status: planned
+      security:
+        - accountSessionCookie: []
+      responses:
+        "204":
+          description: Invite отозван или уже неактивен
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/MembershipRequired"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/public-rooms/{publicRoomId}/members/{accountId}/revoke:
+    parameters:
+      - $ref: "#/components/parameters/PublicRoomId"
+      - $ref: "#/components/parameters/AccountId"
+    post:
+      tags: [Internet access]
+      operationId: revokePublicRoomMember
+      summary: Удалить member-а из private Internet-mode room
+      x-implementation-status: planned
+      security:
+        - accountSessionCookie: []
+      responses:
+        "204":
+          description: Membership удалена или уже неактивна; active participant отключён
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/MembershipRequired"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/invite-redemptions:
+    post:
+      tags: [Internet access]
+      operationId: redeemPublicInvite
+      summary: Обменять hash-only invite token на membership
+      description: |
+        Planned endpoint. Invite token приходит только в POST body, а не в
+        server-visible URL/query. Ответ не содержит LiveKit credential.
+      x-implementation-status: planned
+      security:
+        - accountSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedeemPublicInviteRequest"
+      responses:
+        "200":
+          description: Account получил или восстановил membership
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicRoomAccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/InviteUnavailable"
+        "409":
+          $ref: "#/components/responses/AccountLimitReached"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 components:
   securitySchemes:
     sessionCookie:
@@ -458,6 +792,13 @@ components:
       name: wt_session
       description: |
         Opaque session credential. Production cookie: HttpOnly, Secure, SameSite=Strict.
+    accountSessionCookie:
+      type: apiKey
+      in: cookie
+      name: wt_account
+      description: |
+        Planned opaque account credential for Internet mode. Не заменяет
+        `wt_session` и не передаётся в URL, JavaScript storage или WebSocket query.
     feedbackAdminToken:
       type: apiKey
       in: header
@@ -507,12 +848,52 @@ components:
         type: integer
         minimum: 1
         maximum: 1000
+    EmailChallengeId:
+      name: challengeId
+      in: path
+      required: true
+      description: Opaque ID challenge; не является account ID или email.
+      schema:
+        type: string
+        format: uuid
+    PublicRoomId:
+      name: publicRoomId
+      in: path
+      required: true
+      description: Persistent public access record, отдельный от текущего LAN roomId.
+      schema:
+        type: string
+        format: uuid
+    PublicInviteId:
+      name: inviteId
+      in: path
+      required: true
+      description: Invite record ID; raw token в path не передаётся.
+      schema:
+        type: string
+        format: uuid
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
 
   headers:
     SessionCookie:
       description: HttpOnly session cookie; Secure обязателен вне локальной разработки.
       schema:
         type: string
+    AccountSessionCookie:
+      description: Planned HttpOnly `wt_account` cookie; Secure и SameSite=Strict обязательны.
+      schema:
+        type: string
+    NoStore:
+      description: Ответ содержит access state или credential и не должен кэшироваться.
+      schema:
+        type: string
+        const: no-store
 
   schemas:
     HealthResponse:
@@ -973,6 +1354,170 @@ components:
           type: string
           format: date-time
 
+    EmailChallengeRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: |
+            Адрес нужен только будущему email provider и account storage; не
+            возвращается в public room, invite или telemetry response.
+
+    EmailChallengeAccepted:
+      type: object
+      additionalProperties: false
+      required: [challengeId, expiresAt]
+      properties:
+        challengeId:
+          type: string
+          format: uuid
+        expiresAt:
+          type: string
+          format: date-time
+
+    VerifyEmailChallengeRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 6
+          maxLength: 12
+          pattern: ^[A-Za-z0-9]+$
+          writeOnly: true
+          description: Одноразовый код; не логируется и не возвращается.
+        displayName:
+          $ref: "./schemas/common.schema.json#/$defs/DisplayName"
+
+    AccountProfile:
+      type: object
+      additionalProperties: false
+      required: [accountId, displayName, createdAt]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        displayName:
+          $ref: "./schemas/common.schema.json#/$defs/DisplayName"
+        createdAt:
+          type: string
+          format: date-time
+
+    PublicRoomStatus:
+      type: string
+      enum: [OPEN, CLOSED, EXPIRED]
+
+    PublicMembershipRole:
+      type: string
+      enum: [OWNER, GUEST]
+
+    PublicRoom:
+      type: object
+      additionalProperties: false
+      required: [publicRoomId, status, memberLimit, createdAt, expiresAt]
+      properties:
+        publicRoomId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/PublicRoomStatus"
+        memberLimit:
+          type: integer
+          const: 4
+          description: "Текущий product limit: owner и до трёх guest-ов."
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    PublicRoomMembership:
+      type: object
+      additionalProperties: false
+      required: [role, joinedAt]
+      properties:
+        role:
+          $ref: "#/components/schemas/PublicMembershipRole"
+        joinedAt:
+          type: string
+          format: date-time
+
+    PublicRoomAccess:
+      type: object
+      additionalProperties: false
+      required: [room, membership]
+      properties:
+        room:
+          $ref: "#/components/schemas/PublicRoom"
+        membership:
+          $ref: "#/components/schemas/PublicRoomMembership"
+
+    CreatePublicRoomRequest:
+      type: object
+      additionalProperties: false
+      required: [expiresInMinutes]
+      properties:
+        expiresInMinutes:
+          type: integer
+          minimum: 10
+          maximum: 1440
+          description: Public room не является persistent viewing history.
+
+    CreatePublicInviteRequest:
+      type: object
+      additionalProperties: false
+      required: [expiresInMinutes, maxRedemptions]
+      properties:
+        expiresInMinutes:
+          type: integer
+          minimum: 5
+          maximum: 10080
+        maxRedemptions:
+          type: integer
+          minimum: 1
+          maximum: 3
+
+    PublicInviteCreated:
+      type: object
+      additionalProperties: false
+      required: [inviteId, invitePath, expiresAt, maxRedemptions]
+      properties:
+        inviteId:
+          type: string
+          format: uuid
+        invitePath:
+          type: string
+          pattern: ^/join#invite=[A-Za-z0-9_-]{43}$
+          description: |
+            Browser route с raw token в fragment. Fragment не отправляется HTTP
+            server-у; frontend передаёт token только в POST body redemption.
+        expiresAt:
+          type: string
+          format: date-time
+        maxRedemptions:
+          type: integer
+          minimum: 1
+          maximum: 3
+
+    RedeemPublicInviteRequest:
+      type: object
+      additionalProperties: false
+      required: [inviteToken]
+      properties:
+        inviteToken:
+          type: string
+          minLength: 43
+          maxLength: 43
+          pattern: ^[A-Za-z0-9_-]{43}$
+          writeOnly: true
+          description: 32 random bytes Base64 URL без padding; в storage хранится только hash.
+
     ProblemDetails:
       $ref: "./schemas/problem-details.schema.json"
 
@@ -984,7 +1529,13 @@ components:
           schema:
             $ref: "#/components/schemas/ProblemDetails"
     Unauthorized:
-      description: Session credential отсутствует или недействительна
+      description: Требуемая session credential отсутствует или недействительна
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    ChallengeRejected:
+      description: Challenge или code недействителен либо истёк; ответ не раскрывает причину
       content:
         application/problem+json:
           schema:
@@ -1001,6 +1552,18 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/ProblemDetails"
+    MembershipRequired:
+      description: Public room недоступна без active membership; ответ не раскрывает её существование или owner-а
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    InviteUnavailable:
+      description: Invite недоступен; ответ не раскрывает, был ли token неверен, истёк, отозван или исчерпан
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
     NotFound:
       description: Ресурс не найден или уже удалён по retention policy
       content:
@@ -1009,6 +1572,12 @@ components:
             $ref: "#/components/schemas/ProblemDetails"
     Conflict:
       description: Конфликт состояния, idempotency key или лимита участников
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    AccountLimitReached:
+      description: Account или room достигла безопасного product limit
       content:
         application/problem+json:
           schema:

@@ -30,6 +30,24 @@
 - `POST /api/v1/rooms/{roomId}/close` требует host session cookie и `X-Host-Secret`.
 - Внешние ответы не содержат локальные пути, movie bytes, stack trace или инфраструктурные секреты.
 
+## Planned Internet mode (`/api/v2`)
+
+`/api/v2` описывает будущий public Internet mode и **не реализован** до следующих
+тикетов. Он не меняет текущие LAN endpoints `/api/v1` и не включает регистрацию
+или публичный доступ сам по себе.
+
+- Account session хранится отдельно в opaque cookie `wt_account`; она не заменяет
+  текущую room cookie `wt_session`.
+- Email challenge возвращает одинаковый `202` для нового и существующего email.
+  Raw одноразовый code не возвращается и не попадает в browser storage.
+- Invite URL имеет вид `/join#invite=<token>`: fragment не уходит HTTP server-у.
+  Frontend передаёт raw token только write-only полем `POST /api/v2/invite-redemptions`.
+- До `LiveKitTokenResponse` обязательна active account membership. Revoke invite
+  или member-а запрещает выпуск новых tokens и должен отключать active participant
+  в runtime-тикете.
+- Public room не принимает и не возвращает movie bytes, local path, movie title,
+  email или LiveKit API secret.
+
 ## WebSocket
 
 Endpoint: `/api/v1/rooms/{roomId}/events`. Upgrade использует same-origin session cookie. Дополнительный credential в query string запрещён.
@@ -68,18 +86,22 @@ Endpoint: `/api/v1/rooms/{roomId}/events`. Upgrade использует same-ori
 
 Стартовый каталог:
 
-| HTTP | Code                      | Retryable | Назначение                                        |
-| ---: | ------------------------- | :-------: | ------------------------------------------------- |
-|  400 | `MALFORMED_REQUEST`       |    нет    | Некорректный JSON или структура запроса           |
-|  401 | `AUTHENTICATION_REQUIRED` |    нет    | Нет действующей session                           |
-|  403 | `ACCESS_DENIED`           |    нет    | Недостаточно прав                                 |
-|  404 | `ROOM_UNAVAILABLE`        |    нет    | Комната недоступна без раскрытия её существования |
-|  409 | `IDEMPOTENCY_CONFLICT`    |    нет    | Key повторен с другим payload                     |
-|  409 | `ROOM_FULL`               |    нет    | Достигнут participant limit                       |
-|  409 | `ROOM_STATE_CONFLICT`     |    да     | Операция основана на устаревшей room version      |
-|  422 | `VALIDATION_FAILED`       |    нет    | Предметная валидация не прошла                    |
-|  429 | `RATE_LIMITED`            |    да     | Превышен rate limit                               |
-|  500 | `INTERNAL_ERROR`          |    да     | Безопасная внутренняя ошибка                      |
+| HTTP | Code                      | Retryable | Назначение                                          |
+| ---: | ------------------------- | :-------: | --------------------------------------------------- |
+|  400 | `MALFORMED_REQUEST`       |    нет    | Некорректный JSON или структура запроса             |
+|  401 | `AUTHENTICATION_REQUIRED` |    нет    | Нет действующей session                             |
+|  401 | `AUTH_CHALLENGE_REJECTED` |    нет    | Code/challenge недействителен без раскрытия причины |
+|  403 | `ACCESS_DENIED`           |    нет    | Недостаточно прав                                   |
+|  404 | `ROOM_UNAVAILABLE`        |    нет    | Комната недоступна без раскрытия её существования   |
+|  404 | `INVITE_UNAVAILABLE`      |    нет    | Invite неверен, истёк, отозван или исчерпан         |
+|  404 | `MEMBERSHIP_REQUIRED`     |    нет    | Нет active membership без oracle public room        |
+|  409 | `IDEMPOTENCY_CONFLICT`    |    нет    | Key повторен с другим payload                       |
+|  409 | `ROOM_FULL`               |    нет    | Достигнут participant limit                         |
+|  409 | `ACCOUNT_LIMIT_REACHED`   |    нет    | Достигнут безопасный лимит account/room             |
+|  409 | `ROOM_STATE_CONFLICT`     |    да     | Операция основана на устаревшей room version        |
+|  422 | `VALIDATION_FAILED`       |    нет    | Предметная валидация не прошла                      |
+|  429 | `RATE_LIMITED`            |    да     | Превышен rate limit                                 |
+|  500 | `INTERNAL_ERROR`          |    да     | Безопасная внутренняя ошибка                        |
 
 Frontend отображает локализованный текст по `code`. Неизвестный code обрабатывается как generic error с `correlationId`; raw `detail` не считается готовым пользовательским текстом.
 

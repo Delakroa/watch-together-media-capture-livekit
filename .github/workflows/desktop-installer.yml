@@ -147,15 +147,16 @@ jobs:
         run: |
           $artifacts = @(Get-ChildItem desktop/release -Filter "Spectemus-Simul-*-win-x64.exe")
           if ($artifacts.Count -ne 1) { throw "Ожидался один Windows NSIS installer." }
-          $installPath = Join-Path $env:RUNNER_TEMP "Spectemus Simul install smoke"
+          $installPath = Join-Path $env:RUNNER_TEMP "spectemus-install-smoke"
           try {
-            & $artifacts[0].FullName "/S" "/D=$installPath"
-            if ($LASTEXITCODE -ne 0) { throw "NSIS installer завершился с кодом $LASTEXITCODE." }
+            $installer = Start-Process -FilePath $artifacts[0].FullName -ArgumentList @("/S", "/D=$installPath") -Wait -PassThru
+            if ($installer.ExitCode -ne 0) { throw "NSIS installer завершился с кодом $($installer.ExitCode)." }
             node scripts/desktop-installed-app-smoke.mjs --platform win --app $installPath
           } finally {
             $uninstaller = Join-Path $installPath "Uninstall Spectemus Simul.exe"
             if (Test-Path $uninstaller) {
-              & $uninstaller "/S"
+              $uninstallerProcess = Start-Process -FilePath $uninstaller -ArgumentList "/S" -Wait -PassThru
+              if ($uninstallerProcess.ExitCode -ne 0) { throw "NSIS uninstaller завершился с кодом $($uninstallerProcess.ExitCode)." }
             }
             if (Test-Path $installPath) {
               Remove-Item $installPath -Recurse -Force
